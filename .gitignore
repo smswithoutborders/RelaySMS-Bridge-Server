@@ -165,3 +165,9 @@ cython_debug/
 
 # Ignore bridges source code
 bridges
+
+# Ignore all .proto files
+*.proto
+
+# Except for bridge.proto
+!bridge.proto

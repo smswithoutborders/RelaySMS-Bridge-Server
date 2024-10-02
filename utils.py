@@ -7,6 +7,7 @@ Public License was not distributed with this file, see <https://www.gnu.org/lice
 """
 
 import os
+import json
 from logutils import get_logger
 
 logger = get_logger(__name__)
@@ -45,3 +46,25 @@ def get_env_var(env_name: str, default_value: str = None, strict: bool = False) 
     except ValueError as error:
         logger.error("Environment variable '%s' is empty or None: %s", env_name, error)
         raise
+
+
+def load_bridges_from_file(file_path):
+    """Load bridges from a JSON file.
+
+    Args:
+        file_path (str): The path to the file containing the bridge data.
+
+    Returns:
+        dict: A dictionary containing the bridge data.
+    """
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as file:
+            bridge_data = json.load(file)
+        return bridge_data
+    except FileNotFoundError:
+        logger.exception("File '%s' not found.", file_path)
+        return {}
+    except json.JSONDecodeError:
+        logger.exception("Error decoding JSON from '%s'.", file_path)
+        return {}

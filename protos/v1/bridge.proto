@@ -1,3 +1,27 @@
 syntax = "proto3";
 
 package bridge.v1;
+
+// Request message for publishing content
+message PublishContentRequest {
+  // The content to be published
+  string content = 1;
+  // Metadata about the content
+  map<string, string> metadata = 2;
+}
+
+// Response message for the PublishContent RPC
+message PublishContentResponse {
+  // Indicates if the publishing was successful
+  bool success = 1;
+  // A response message
+  string message = 2;
+  // A response from the publisher
+  string publisher_response = 3;
+}
+
+// Service for managing entities
+service EntityService {
+  // Publish content.
+  rpc PublishContent(PublishContentRequest) returns (PublishContentResponse);
+}
