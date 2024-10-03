@@ -68,3 +68,18 @@ def load_bridges_from_file(file_path):
     except json.JSONDecodeError:
         logger.exception("Error decoding JSON from '%s'.", file_path)
         return {}
+
+
+def mask_sensitive_info(value):
+    """
+    Masks all but the last three digits of the given value.
+
+    Args:
+        value (str): The string to be masked.
+
+    Returns:
+        str: The masked string with all but the last three digits replaced by '*'.
+    """
+    if not value:
+        return value
+    return "*" * (len(value) - 3) + value[-3:]
