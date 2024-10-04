@@ -1,0 +1,101 @@
+@startuml "Bridge Data Flow Diagram"
+title Bridge Data Flow Diagram
+
+actor User as U
+participant "Gateway Server" as GS
+participant "Bridge Server" as BS
+participant "Vault" as V
+participant "SMS Provider" as SP
+participant "Bridges" as B
+
+U -> GS : incoming message
+    note left
+        **Message Details:**
+        - CONCAT(0, payload)
+    end note
+
+GS -> BS : << publishContent request >>
+    note left
+        **Payload:**
+        - CONCAT(0, len_pub_key, pub_key)
+        **or**
+        - CONCAT(len_content, bridge_letter, content, device_id)
+    end note
+
+BS -> BS : Process **publish body**
+    note left: SPLIT(payload)
+
+alt Payload Type: Init (publish body[0] = 0)
+    BS -> V : << createBridgeEntity request >>
+        activate BS
+        note left
+            **Payload:**
+            - device_pub_key
+            - phone_number
+        end note
+
+        activate V
+        V -> V : Generate keypair
+        V -> SP : << sendMessage request >>
+            activate V
+            note left
+                **Body:**
+                - auth code
+                - server_pub_key
+            end note
+            activate SP
+            return << sendMessage response >>
+        deactivate V
+
+        return << createBridgeEntity response >>
+    deactivate BS
+
+    SP -> U : Send auth message to user
+
+else Content contains auth code
+    BS -> V : << createBridgeEntity request >>
+        activate BS
+        note left
+            **Payload:**
+            - auth code
+            - phone_number **or** device_id
+        end note
+        activate V
+        return << createBridgeEntity response >>
+    deactivate BS
+
+else Authenticate existing entity
+    BS -> V : << authBridgeEntity request >>
+        activate BS
+        note left
+            **Payload:**
+            - phone_number **or** device id
+        end note
+        activate V
+        return << authBridgeEntity response >>
+    deactivate BS
+end
+
+BS -> V : << decryptMessage request >>
+    activate BS
+    note left
+        **Payload:**
+        - Encrypted message content
+    end note
+    activate V
+    return << decryptMessage response >>
+deactivate BS
+
+BS -> B : Send message to bridge
+    activate BS
+    note left
+        **Payload:**
+        - Decrypted message content
+    end note
+    activate B
+    return Bridge response
+deactivate BS
+
+BS --> GS : << publishContent response >>
+
+@enduml
