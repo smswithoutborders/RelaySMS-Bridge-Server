@@ -74,68 +74,102 @@ def grpc_call(internal=True):
 
 
 @grpc_call()
-def decrypt_payload(payload_ciphertext, **kwargs):
+def decrypt_payload(phone_number, payload_ciphertext, **kwargs):
     """
-    Decrypts the payload.
+    Sends a request to decrypt the provided payload ciphertext.
 
     Args:
-        payload_ciphertext (bytes): The ciphertext of the payload to be decrypted.
+        phone_number (str): The phone number associated with the bridge entity.
+        payload_ciphertext (str): The encrypted payload to be decrypted.
+        **kwargs:
+            - stub (object): The gRPC client stub for making the request.
 
     Returns:
         tuple: A tuple containing:
-            - server response (object): The vault server response.
-            - error (Exception): The error encountered if the request fails, otherwise None.
+            - response (object): The vault server's response.
+            - error (Exception or None): None if successful, otherwise the encountered exception.
     """
     stub = kwargs["stub"]
-    device_id = kwargs.get("device_id")
-    phone_number = kwargs.get("phone_number")
 
     request = vault_pb2.DecryptPayloadRequest(
-        device_id=device_id,
         payload_ciphertext=payload_ciphertext,
         phone_number=phone_number,
     )
 
-    identifier = mask_sensitive_info(device_id or phone_number)
+    identifier = mask_sensitive_info(phone_number)
 
-    logger.debug(
-        "Initiating decryption request using %s='%s'.",
-        "device_id" if device_id else "phone_number",
-        identifier,
-    )
+    logger.debug("Initiating decryption request using phone_number='%s'.", identifier)
 
     response = stub.DecryptPayload(request)
 
     logger.info(
-        "Decryption successful using %s.",
-        "device_id" if device_id else "phone_number",
+        "Decryption successful using identifier type: phone_number.",
     )
     return response, None
 
 
 @grpc_call()
-def encrypt_payload(device_id, payload_plaintext, **kwargs):
+def create_bridge_entity(phone_number, **kwargs):
     """
-    Encrypts the payload.
+    Sends a request to create a bridge entity.
 
     Args:
-        device_id (str): The ID of the device.
-        payload_plaintext (str): The plaintext of the payload to be encrypted.
+        phone_number (str): The phone number associated with the bridge entity.
+        **kwargs:
+            - stub (object): The gRPC client stub for making requests.
+            - country_code (str, optional): The country code for the phone number.
+            - client_publish_pub_key (str, optional): The client's public key used for publishing.
+            - ownership_proof_response (str, optional): Proof of ownership response.
 
     Returns:
-        tuple: A tuple containing:
-            - server response (object): The vault server response.
-            - error (Exception): The error encountered if the request fails, otherwise None.
+        tuple:
+            - response (object): The vault server's response.
+            - error (Exception or None): None if successful, otherwise the encountered exception.
     """
     stub = kwargs["stub"]
-    request = vault_pb2.EncryptPayloadRequest(
-        device_id=device_id, payload_plaintext=payload_plaintext
+    country_code = kwargs.get("country_code")
+    client_publish_pub_key = kwargs.get("client_publish_pub_key")
+    ownership_proof_response = kwargs.get("ownership_proof_response")
+
+    request = vault_pb2.CreateBridgeEntityRequest(
+        phone_number=phone_number,
+        country_code=country_code,
+        client_publish_pub_key=client_publish_pub_key,
+        ownership_proof_response=ownership_proof_response,
     )
 
     logger.debug(
-        "Sending request to encrypt payload for device_id: %s",
-        device_id,
+        "Sending request to create bridge entity for phone_number: %s",
+        phone_number,
     )
     response = stub.EncryptPayload(request)
-    logger.info("Successfully encrypted payload.")
+    logger.info("Successfully created bridge entity.")
+    return response, None
+
+
+@grpc_call()
+def authenticate_bridge_entity(phone_number, **kwargs):
+    """
+    Sends a request to authenticate a bridge entity.
+
+    Args:
+        phone_number (str): The phone number associated with the bridge entity.
+        **kwargs:
+            - stub (object): The gRPC client stub for making requests.
+
+    Returns:
+        tuple: A tuple containing:
+            - response (object): The vault server's response.
+            - error (Exception or None): None if successful, otherwise the encountered exception.
+    """
+    stub = kwargs["stub"]
+
+    request = vault_pb2.AuthenticateBridgeEntityRequest(phone_number=phone_number)
+
+    logger.debug(
+        "Sending request to authenticate bridge entity for phone_number: %s",
+        phone_number,
+    )
+    response = stub.AuthenticateBridgeEntity(request)
+    logger.info("Successfully authenticated bridge entity.")
     return response, None
