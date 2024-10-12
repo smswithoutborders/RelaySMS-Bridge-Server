@@ -18,7 +18,7 @@ def decode_content(content: str) -> tuple:
         content (str): Base64 encoded string representing the content to be decoded.
 
     Returns:
-        tuple: A tuple containing:
+        tuple:
             - result (dict): A dictionary with decoded content.
             - error (None or Exception): None if successful, or the exception
               if an error occurred.
