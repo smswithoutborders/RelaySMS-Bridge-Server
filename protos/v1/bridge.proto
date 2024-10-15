@@ -20,8 +20,6 @@ message PublishContentResponse {
   bool success = 1;
   // A response message
   string message = 2;
-  // A response from the publisher
-  string publisher_response = 3;
 }
 
 // Service for managing entities

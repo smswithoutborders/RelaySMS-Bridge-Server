@@ -142,7 +142,7 @@ def create_bridge_entity(phone_number, **kwargs):
         "Sending request to create bridge entity for phone_number: %s",
         phone_number,
     )
-    response = stub.EncryptPayload(request)
+    response = stub.CreateBridgeEntity(request)
     logger.info("Successfully created bridge entity.")
     return response, None
 

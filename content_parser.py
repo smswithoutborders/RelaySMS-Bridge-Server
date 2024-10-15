@@ -56,3 +56,28 @@ def decode_content(content: str) -> tuple:
 
     except Exception as e:
         return None, e
+
+
+def extract_content(bridge_name, content):
+    """
+    Extracts components from the given content based on the specified bridge name.
+
+    Args:
+        bridge_name (str): The name of the bridge.
+        content (str): The content string to be parsed.
+
+    Returns:
+        tuple:
+            - A tuple of extracted components if successful,
+                or None if the bridge name is invalid or the content format is incorrect.
+            - An error message (str) if there is an issue, or None if successful.
+    """
+    if bridge_name == "email_bridge":
+        # Email format: 'to:cc:bcc:subject:body'
+        parts = content.split(":", 4)
+        if len(parts) != 5:
+            return None, "Email content must have exactly 5 parts."
+        to_email, cc_email, bcc_email, subject, body = parts
+        return (to_email, cc_email, bcc_email, subject, body), None
+
+    return None, "Invalid service_type. Must be 'email_bridge'."

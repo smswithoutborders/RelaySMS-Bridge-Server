@@ -27,3 +27,6 @@ clean:
 	rm -f *_pb2_grpc.py
 	rm -f *_pb2.py
 	rm -f *_pb2.pyi
+
+%:
+	@:

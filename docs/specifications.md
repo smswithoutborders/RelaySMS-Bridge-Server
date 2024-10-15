@@ -9,7 +9,7 @@
 
 The Bridge supports the following content formats:
 
-1. **Email format**: `from:to:cc:bcc:subject:body`
+1. **Email format**: `to:cc:bcc:subject:body`
 
    - Example: Email Bridge
 
@@ -36,7 +36,7 @@ The public key payload is structured as follows:
 #### Example Encoding
 
 ```python
-content_switch = b"0"s
+content_switch = b"0"
 public_key = b"pub_key"  # Example public key
 public_key_data = content_switch + struct.pack("<i", len(public_key)) + public_key
 public_key_payload = base64.b64encode(public_key_data).decode("utf-8")
@@ -56,10 +56,10 @@ The authentication code payload is structured as follows:
 ### Example Layout
 
 ```
-+-------------------------+-----------------------------+--------------------+-----------------+-----------------+
-| Content Switch          | Length of Authentication Code| Authentication Code| Bridge Letter  | Ciphertext      |
-| (1 byte)                | (4 bytes, integer)           | (variable size)    | (1 byte)       | (variable size) |
-+-------------------------+-----------------------------+--------------------+-----------------+-----------------+
++----------------+-------------------------------+---------------------+-----------------+-----------------+
+| Content Switch | Length of Authentication Code | Authentication Code | Bridge Letter   | Ciphertext      |
+| (1 byte)       | (4 bytes, integer)            | (variable size)     | (1 byte)        | (variable size) |
++----------------+-------------------------------+---------------------+-----------------+-----------------+
 ```
 
 #### Example Encoding
@@ -70,7 +70,7 @@ auth_code = b"123456"  # Example authentication code
 bl = b"e"               # Example bridge letter
 enc_content = b"Hello world!"  # Example content to encrypt
 
-auth_code_data = struct.pack("<i", len(auth_code)) + auth_code + bl + enc_content
+auth_code_data = content_switch + struct.pack("<i", len(auth_code)) + auth_code + bl + enc_content
 auth_code_payload = base64.b64encode(auth_code_data).decode("utf-8")
 ```
 
@@ -80,22 +80,24 @@ The encrypted content only payload is structured as follows:
 
 - **Content Switch**: A single byte indicating the type of payload.
   - Value: `2` (indicates that the payload contains only ciphertext)
+- **Bridge Letter**: A single byte representing the bridge letter.
 - **Ciphertext**: The encrypted content (variable length).
 
 ### Example Layout
 
 ```
-+------------------+-----------------------------------+
-| Content Switch   | Ciphertext (variable size)        |
-| (1 byte)         |                                   |
-+------------------+-----------------------------------+
++------------------+-----------------+-----------------------------------+
+| Content Switch   | Bridge Letter   | Ciphertext (variable size)        |
+| (1 byte)         | (1 byte)        |                                   |
++------------------+-----------------+-----------------------------------+
 ```
 
 #### Example Encoding
 
 ```python
 content_switch = b"2"
+bl = b"e"               # Example bridge letter
 enc_content = b"Hello world!"  # Example encrypted content
-content_data = content_switch + enc_content
+content_data = content_switch + bl + enc_content
 enc_content_only_payload = base64.b64encode(content_data).decode("utf-8")
 ```

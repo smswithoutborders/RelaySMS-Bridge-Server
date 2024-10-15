@@ -7,10 +7,14 @@ Public License was not distributed with this file, see <https://www.gnu.org/lice
 """
 
 import os
+import sys
+import importlib.util
 import json
 from logutils import get_logger
 
 logger = get_logger(__name__)
+
+BRIDGES_FILE_PATH = os.path.join("resources", "bridges.json")
 
 
 def get_env_var(env_name: str, default_value: str = None, strict: bool = False) -> str:
@@ -83,3 +87,55 @@ def mask_sensitive_info(value):
     if not value:
         return value
     return "*" * (len(value) - 3) + value[-3:]
+
+
+def get_bridge_details_by_shortcode(shortcode):
+    """
+    Get the bridge details corresponding to the given shortcode.
+
+    Args:
+        shortcode (str): The shortcode to look up.
+
+    Returns:
+        tuple:
+            - bridge_details (dict): Details of the bridge if found.
+            - error_message (str): Error message if bridge is not found,
+    """
+    bridge_details = load_bridges_from_file(BRIDGES_FILE_PATH)
+
+    for bridge in bridge_details:
+        if bridge.get("shortcode") == shortcode:
+            return bridge, None
+
+    available_bridges = ", ".join(
+        f"'{bridge['shortcode']}' for {bridge['name']}" for bridge in bridge_details
+    )
+    error_message = (
+        f"No bridge found for shortcode '{shortcode}'. "
+        f"Available shortcodes: {available_bridges}"
+    )
+
+    return None, error_message
+
+
+def import_module_dynamically(module_name, module_file_path, bridge_directory):
+    """
+    Dynamically imports a module from a specified file path.
+
+    Args:
+        module_name (str): The name of the module to import.
+        module_file_path (str): The file path to the module.
+        bridge_directory (str): The directory to be added to sys.path for importing the module.
+
+    Returns:
+        module: The imported module.
+    """
+    if bridge_directory not in sys.path:
+        sys.path.insert(0, bridge_directory)
+
+    spec = importlib.util.spec_from_file_location(module_name, module_file_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+
+    return module
