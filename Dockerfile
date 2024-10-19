@@ -4,6 +4,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     git \
+    curl \
     pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
