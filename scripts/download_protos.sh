@@ -11,8 +11,10 @@ PROTO_BASE_DIR="$PARENT_DIR/protos"
 PROTO_FILE="${1:-}"
 VERSION="${2:-}"
 
+CURRENT_BRANCH=$(git branch --show-current)
+
 declare -A PROTO_FILES=(
-    ["vault.proto"]="https://raw.githubusercontent.com/smswithoutborders/SMSwithoutborders-BE/refs/heads/main/protos/v1/vault.proto"
+    ["vault.proto"]="https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Vault/$CURRENT_BRANCH/protos/v1/vault.proto"
 )
 
 if [[ -z "$PROTO_FILE" || -z "$VERSION" ]]; then
