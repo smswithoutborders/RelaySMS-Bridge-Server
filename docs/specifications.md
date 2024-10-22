@@ -51,27 +51,40 @@ The authentication code payload is structured as follows:
 - **Length of Authentication Code**: A 4-byte integer representing the length of the authentication code.
 - **Authentication Code**: The authentication code data.
 - **Bridge Letter**: A single byte representing the bridge letter.
+- **Length of Ciphertext**: A 4-byte integer representing the length of the ciphertext.
 - **Ciphertext**: The encrypted content (variable length).
 
 ### Example Layout
 
 ```
-+----------------+-------------------------------+---------------------+-----------------+-----------------+
-| Content Switch | Length of Authentication Code | Authentication Code | Bridge Letter   | Ciphertext      |
-| (1 byte)       | (4 bytes, integer)            | (variable size)     | (1 byte)        | (variable size) |
-+----------------+-------------------------------+---------------------+-----------------+-----------------+
++----------------+-------------------------------+---------------------+-----------------+----------------------------+----------------------------+
+| Content Switch | Length of Authentication Code | Authentication Code | Bridge Letter   | Length of Ciphertext       | Ciphertext                 |
+| (1 byte)       | (4 bytes, integer)            | (variable size)     | (1 byte)        | (4 bytes, integer)         | (variable size)            |
++----------------+-------------------------------+---------------------+-----------------+----------------------------+----------------------------+
 ```
 
 #### Example Encoding
 
 ```python
+import struct
+import base64
+
 content_switch = b"1"
 auth_code = b"123456"  # Example authentication code
-bl = b"e"               # Example bridge letter
+bl = b"e"              # Example bridge letter
 enc_content = b"Hello world!"  # Example content to encrypt
 
-auth_code_data = content_switch + struct.pack("<i", len(auth_code)) + auth_code + bl + enc_content
+auth_code_data = (
+    content_switch +
+    struct.pack("<i", len(auth_code)) +  # Length of authentication code
+    auth_code +
+    bl +
+    struct.pack("<i", len(enc_content)) +  # Length of ciphertext
+    enc_content
+)
+
 auth_code_payload = base64.b64encode(auth_code_data).decode("utf-8")
+print(auth_code_payload)
 ```
 
 ### 1.3 Encrypted Content Only Payload (No Auth Code)
@@ -81,23 +94,35 @@ The encrypted content only payload is structured as follows:
 - **Content Switch**: A single byte indicating the type of payload.
   - Value: `2` (indicates that the payload contains only ciphertext)
 - **Bridge Letter**: A single byte representing the bridge letter.
+- **Length of Ciphertext**: A 4-byte integer representing the length of the ciphertext.
 - **Ciphertext**: The encrypted content (variable length).
 
 ### Example Layout
 
 ```
-+------------------+-----------------+-----------------------------------+
-| Content Switch   | Bridge Letter   | Ciphertext (variable size)        |
-| (1 byte)         | (1 byte)        |                                   |
-+------------------+-----------------+-----------------------------------+
++------------------+-----------------+----------------------------+----------------------------+
+| Content Switch   | Bridge Letter   | Length of Ciphertext       | Ciphertext                 |
+| (1 byte)         | (1 byte)        | (4 bytes, integer)         | (variable size)            |
++------------------+-----------------+----------------------------+----------------------------+
 ```
 
 #### Example Encoding
 
 ```python
-content_switch = b"2"
-bl = b"e"               # Example bridge letter
-enc_content = b"Hello world!"  # Example encrypted content
-content_data = content_switch + bl + enc_content
+import struct
+import base64
+
+content_switch = b"2"            # Content Switch indicating ciphertext only
+bl = b"e"                        # Example bridge letter
+enc_content = b"Hello world!"    # Example encrypted content
+
+content_data = (
+    content_switch +
+    bl +
+    struct.pack("<i", len(enc_content)) +  # Length of ciphertext (4 bytes, integer)
+    enc_content
+)
+
 enc_content_only_payload = base64.b64encode(content_data).decode("utf-8")
+print(enc_content_only_payload)
 ```

@@ -32,20 +32,36 @@ def decode_content(content: str) -> tuple:
         if content_switch == "0":
             len_public_key = struct.unpack("<i", payload[1:5])[0]
             result = {"public_key": payload[5 : 5 + len_public_key]}
+
         elif content_switch == "1":
             len_auth_code = struct.unpack("<i", payload[1:5])[0]
             auth_code = payload[5 : 5 + len_auth_code].decode("utf-8")
             bridge_letter = chr(payload[5 + len_auth_code])
+
+            len_ciphertext = struct.unpack(
+                "<i", payload[6 + len_auth_code : 10 + len_auth_code]
+            )[0]
+            ciphertext_start = 10 + len_auth_code
+            ciphertext_end = ciphertext_start + len_ciphertext
+            content_ciphertext = payload[ciphertext_start:ciphertext_end]
+
             result = {
                 "auth_code": auth_code,
                 "bridge_letter": bridge_letter,
-                "content_ciphertext": payload[6 + len_auth_code :],
+                "content_ciphertext": content_ciphertext,
             }
+
         elif content_switch == "2":
+            bridge_letter = chr(payload[1])
+
+            len_ciphertext = struct.unpack("<i", payload[2:6])[0]
+            content_ciphertext = payload[6 : 6 + len_ciphertext]
+
             result = {
-                "bridge_letter": chr(payload[1]),
-                "content_ciphertext": payload[2:],
+                "bridge_letter": bridge_letter,
+                "content_ciphertext": content_ciphertext,
             }
+
         else:
             raise ValueError(
                 f"Invalid starting byte value: {content_switch}. Expected one of '0' (public key), "
