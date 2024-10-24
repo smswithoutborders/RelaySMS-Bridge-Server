@@ -4,125 +4,154 @@
 
 - [Content Format](#content-format)
 - [Payload Format](#payload-format)
+  - [Auth Request Payload](#auth-request-payload)
+  - [Auth Code Payload](#auth-code-payload)
+  - [Auth Code and Payload](#auth-code-and-payload)
+  - [Payload Only](#payload-only)
 
 ## Content Format
 
 The Bridge supports the following content formats:
 
-1. **Email format**: `to:cc:bcc:subject:body`
-
+1. **Email**: `to:cc:bcc:subject:body`
    - Example: Email Bridge
 
 ## Payload Format
 
-### 1.1 Public Key Payload
+| **Payload Type**                                | **Switch** | **Description**                                       |
+| ----------------------------------------------- | ---------- | ----------------------------------------------------- |
+| [Auth Request Payload](#auth-request-payload)   | `0`        | Contains a client public key                          |
+| [Auth Code Payload](#auth-code-payload)         | `1`        | Contains an authentication code                       |
+| [Auth Code and Payload](#auth-code-and-payload) | `2`        | Contains an authentication code and encrypted content |
+| [Payload Only](#payload-only)                   | `3`        | Contains encrypted content only                       |
 
-The public key payload is structured as follows:
+### Auth Request Payload
 
-- **Content Switch**: A single byte indicating the type of payload.
-  - Value: `0` (indicates that the payload contains a public key)
-- **Length of Public Key**: A 4-byte integer representing the length of the public key.
-- **Public Key**: The public key data (variable length based on the length specified).
+- **Switch**: `0`
+- **Format**:
+  - 1 byte: Content Switch
+  - 4 bytes: Public Key Length (integer)
+  - Variable: Client Public Key
 
-### Example Layout
+#### Visual Representation:
 
 ```
-+------------------+------------------------+------------------+
-| Content Switch   | Length of Public Key    | Public Key      |
-| (1 byte)         | (4 bytes, integer)      | (variable size) |
-+------------------+------------------------+------------------+
++------------------+----------------------------+-------------------+
+| Content Switch   | Length of Client Public Key| Client Public Key |
+| (1 byte)         | (4 bytes, integer)         | (variable size)   |
++------------------+----------------------------+-------------------+
 ```
-
-#### Example Encoding
 
 ```python
 content_switch = b"0"
-public_key = b"pub_key"  # Example public key
-public_key_data = content_switch + struct.pack("<i", len(public_key)) + public_key
-public_key_payload = base64.b64encode(public_key_data).decode("utf-8")
+client_public_key = b"client_pub_key"
+
+payload = (
+    content_switch +
+    struct.pack("<i", len(client_public_key)) +
+    client_public_key
+)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
 ```
 
-### 1.2 Authentication Code Payload
+### Auth Code Payload
 
-The authentication code payload is structured as follows:
+- **Switch**: `1`
+- **Format**:
+  - 1 byte: Content Switch
+  - 4 bytes: Auth Code Length (integer)
+  - Variable: Auth Code
 
-- **Content Switch**: A single byte indicating the type of payload.
-  - Value: `1` (indicates that the payload contains an authentication code and ciphertext)
-- **Length of Authentication Code**: A 4-byte integer representing the length of the authentication code.
-- **Authentication Code**: The authentication code data.
-- **Bridge Letter**: A single byte representing the bridge letter.
-- **Length of Ciphertext**: A 4-byte integer representing the length of the ciphertext.
-- **Ciphertext**: The encrypted content (variable length).
-
-### Example Layout
+#### Visual Representation:
 
 ```
-+----------------+-------------------------------+---------------------+-----------------+----------------------------+----------------------------+
-| Content Switch | Length of Authentication Code | Authentication Code | Bridge Letter   | Length of Ciphertext       | Ciphertext                 |
-| (1 byte)       | (4 bytes, integer)            | (variable size)     | (1 byte)        | (4 bytes, integer)         | (variable size)            |
-+----------------+-------------------------------+---------------------+-----------------+----------------------------+----------------------------+
++------------------+----------------------------+-----------------+
+| Content Switch   | Length of Auth Code        | Auth Code       |
+| (1 byte)         | (4 bytes, integer)         | (variable size) |
++------------------+----------------------------+-----------------+
 ```
-
-#### Example Encoding
 
 ```python
-import struct
-import base64
-
 content_switch = b"1"
-auth_code = b"123456"  # Example authentication code
-bl = b"e"              # Example bridge letter
-enc_content = b"Hello world!"  # Example content to encrypt
+auth_code = b"123456"
 
-auth_code_data = (
+payload = (
     content_switch +
-    struct.pack("<i", len(auth_code)) +  # Length of authentication code
-    auth_code +
-    bl +
-    struct.pack("<i", len(enc_content)) +  # Length of ciphertext
-    enc_content
+    struct.pack("<i", len(auth_code)) +
+    auth_code
 )
-
-auth_code_payload = base64.b64encode(auth_code_data).decode("utf-8")
-print(auth_code_payload)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
 ```
 
-### 1.3 Encrypted Content Only Payload (No Auth Code)
+### Auth Code and Payload
 
-The encrypted content only payload is structured as follows:
+- **Switch**: `2`
+- **Format**:
+  - 1 byte: Content Switch
+  - 1 byte: Bridge Letter
+  - 4 bytes: Auth Code Length (integer)
+  - 4 bytes: Ciphertext Length (integer)
+  - Variable: Auth Code
+  - Variable: Ciphertext
 
-- **Content Switch**: A single byte indicating the type of payload.
-  - Value: `2` (indicates that the payload contains only ciphertext)
-- **Bridge Letter**: A single byte representing the bridge letter.
-- **Length of Ciphertext**: A 4-byte integer representing the length of the ciphertext.
-- **Ciphertext**: The encrypted content (variable length).
-
-### Example Layout
+#### Visual Representation:
 
 ```
-+------------------+-----------------+----------------------------+----------------------------+
-| Content Switch   | Bridge Letter   | Length of Ciphertext       | Ciphertext                 |
-| (1 byte)         | (1 byte)        | (4 bytes, integer)         | (variable size)            |
-+------------------+-----------------+----------------------------+----------------------------+
++------------------+-------------------+----------------------------+----------------------------+------------------+----------------------------+
+| Content Switch   | Bridge Letter     | Length of Auth Code        | Length of Ciphertext       | Auth Code        | Ciphertext                 |
+| (1 byte)         | (1 byte)          | (4 bytes, integer)         | (4 bytes, integer)         | (variable size)  | (variable size)            |
++------------------+-------------------+----------------------------+----------------------------+------------------+----------------------------+
 ```
-
-#### Example Encoding
 
 ```python
-import struct
-import base64
+content_switch = b"2"
+auth_code = b"123456"
+bridge_letter = b"e"
+ciphertext = b"Hello world!"
 
-content_switch = b"2"            # Content Switch indicating ciphertext only
-bl = b"e"                        # Example bridge letter
-enc_content = b"Hello world!"    # Example encrypted content
-
-content_data = (
+payload = (
     content_switch +
-    bl +
-    struct.pack("<i", len(enc_content)) +  # Length of ciphertext (4 bytes, integer)
-    enc_content
+    struct.pack("<i", len(auth_code)) +
+    auth_code +
+    bridge_letter +
+    struct.pack("<i", len(ciphertext)) +
+    ciphertext
 )
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
+```
 
-enc_content_only_payload = base64.b64encode(content_data).decode("utf-8")
-print(enc_content_only_payload)
+### Payload Only
+
+- **Switch**: `3`
+- **Format**:
+  - 1 byte: Content Switch
+  - 1 byte: Bridge Letter
+  - 4 bytes: Ciphertext Length (integer)
+  - Variable: Ciphertext
+
+#### Visual Representation:
+
+```
++------------------+------------------+-----------------------------+----------------------------+
+| Content Switch   | Bridge Letter    | Length of Ciphertext        | Ciphertext                 |
+| (1 byte)         | (1 byte)         | (4 bytes, integer)          | (variable size)            |
++------------------+------------------+-----------------------------+----------------------------+
+```
+
+```python
+content_switch = b"3"
+bridge_letter = b"e"
+ciphertext = b"Hello world!"
+
+payload = (
+    content_switch +
+    bridge_letter +
+    struct.pack("<i", len(ciphertext)) +
+    ciphertext
+)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
 ```

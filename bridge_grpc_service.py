@@ -223,7 +223,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
             if decoded_result.get("public_key"):
                 create_response, create_error = create_entity(
                     client_publish_pub_key=base64.b64encode(
-                        decoded_result.get("public_key")
+                        decoded_result["public_key"]
                     ).decode("utf-8")
                 )
                 if create_error:
@@ -238,11 +238,18 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
 
             if decoded_result.get("auth_code"):
                 create_response, create_error = create_entity(
-                    ownership_proof_response=decoded_result.get("auth_code")
+                    ownership_proof_response=decoded_result["auth_code"]
                 )
 
                 if create_error:
                     return create_error
+
+                if "content_ciphertext" not in decoded_result:
+                    return response(
+                        success=True,
+                        message="Successfully authenticated with auth code.",
+                    )
+
             else:
                 _, authenticate_error = authenticate_entity()
 

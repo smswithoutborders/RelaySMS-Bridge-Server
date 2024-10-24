@@ -27,13 +27,19 @@ def decode_content(content: str) -> tuple:
         payload = base64.b64decode(content)
         result = {}
 
-        content_switch = chr(payload[0])
+        content_switch = payload[0]
 
-        if content_switch == "0":
+        if content_switch == 0:
             len_public_key = struct.unpack("<i", payload[1:5])[0]
-            result = {"public_key": payload[5 : 5 + len_public_key]}
+            public_key = payload[5 : 5 + len_public_key]
+            result = {"public_key": public_key}
 
-        elif content_switch == "1":
+        elif content_switch == 1:
+            len_auth_code = struct.unpack("<i", payload[1:5])[0]
+            auth_code = payload[5 : 5 + len_auth_code].decode("utf-8")
+            result = {"auth_code": auth_code}
+
+        elif content_switch == 2:
             len_auth_code = struct.unpack("<i", payload[1:5])[0]
             auth_code = payload[5 : 5 + len_auth_code].decode("utf-8")
             bridge_letter = chr(payload[5 + len_auth_code])
@@ -51,9 +57,8 @@ def decode_content(content: str) -> tuple:
                 "content_ciphertext": content_ciphertext,
             }
 
-        elif content_switch == "2":
+        elif content_switch == 3:
             bridge_letter = chr(payload[1])
-
             len_ciphertext = struct.unpack("<i", payload[2:6])[0]
             content_ciphertext = payload[6 : 6 + len_ciphertext]
 
@@ -64,8 +69,11 @@ def decode_content(content: str) -> tuple:
 
         else:
             raise ValueError(
-                f"Invalid starting byte value: {content_switch}. Expected one of '0' (public key), "
-                "'1' (auth code), or '2' (ciphertext)."
+                f"Invalid content switch: {content_switch}. "
+                "Expected 0 (auth request), "
+                "1 (auth code), "
+                "2 (auth code and payload), "
+                "or 3 (payload only)."
             )
 
         return result, None
