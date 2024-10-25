@@ -43,7 +43,7 @@ The Bridge supports the following content formats:
 ```
 
 ```python
-content_switch = b"0"
+content_switch = bytes([0])  # b'\x00'
 client_public_key = b"client_pub_key"
 
 payload = (
@@ -73,7 +73,7 @@ print(encoded)
 ```
 
 ```python
-content_switch = b"1"
+content_switch = bytes([1])  # b'\x01'
 auth_code = b"123456"
 
 payload = (
@@ -106,17 +106,17 @@ print(encoded)
 ```
 
 ```python
-content_switch = b"2"
+content_switch = bytes([2])  # b'\x02'
 auth_code = b"123456"
 bridge_letter = b"e"
 ciphertext = b"Hello world!"
 
 payload = (
     content_switch +
-    struct.pack("<i", len(auth_code)) +
-    auth_code +
     bridge_letter +
+    struct.pack("<i", len(auth_code)) +
     struct.pack("<i", len(ciphertext)) +
+    auth_code +
     ciphertext
 )
 encoded = base64.b64encode(payload).decode("utf-8")
@@ -142,7 +142,7 @@ print(encoded)
 ```
 
 ```python
-content_switch = b"3"
+content_switch = bytes([3])  # b'\x03'
 bridge_letter = b"e"
 ciphertext = b"Hello world!"
 

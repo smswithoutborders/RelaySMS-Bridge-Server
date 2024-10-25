@@ -230,11 +230,14 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     return create_error
                 return create_response
 
-            bridge_info, bridge_info_error = get_bridge_info(
-                decoded_result["bridge_letter"]
-            )
-            if bridge_info_error:
-                return bridge_info_error
+            if "bridge_letter" in decoded_result:
+                bridge_info, bridge_info_error = get_bridge_info(
+                    decoded_result["bridge_letter"]
+                )
+                if bridge_info_error:
+                    return bridge_info_error
+            else:
+                bridge_info = None
 
             if decoded_result.get("auth_code"):
                 create_response, create_error = create_entity(
@@ -247,7 +250,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 if "content_ciphertext" not in decoded_result:
                     return response(
                         success=True,
-                        message="Successfully authenticated with auth code.",
+                        message=create_response.message,
                     )
 
             else:

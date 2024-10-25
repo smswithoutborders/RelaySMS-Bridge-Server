@@ -40,15 +40,18 @@ def decode_content(content: str) -> tuple:
             result = {"auth_code": auth_code}
 
         elif content_switch == 2:
-            len_auth_code = struct.unpack("<i", payload[1:5])[0]
-            auth_code = payload[5 : 5 + len_auth_code].decode("utf-8")
-            bridge_letter = chr(payload[5 + len_auth_code])
-
+            bridge_letter = chr(payload[1])
+            len_auth_code = struct.unpack("<i", payload[2:6])[0]
             len_ciphertext = struct.unpack(
                 "<i", payload[6 + len_auth_code : 10 + len_auth_code]
             )[0]
-            ciphertext_start = 10 + len_auth_code
+
+            auth_code_start = 10
+            auth_code_end = auth_code_start + len_auth_code
+            ciphertext_start = auth_code_end
             ciphertext_end = ciphertext_start + len_ciphertext
+
+            auth_code = payload[auth_code_start:auth_code_end].decode("utf-8")
             content_ciphertext = payload[ciphertext_start:ciphertext_end]
 
             result = {
