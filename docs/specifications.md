@@ -1,4 +1,4 @@
-# Bridge Specification Documentation
+# Bridge Specification
 
 ## Table of Contents
 
@@ -60,16 +60,16 @@ print(encoded)
 - **Switch**: `1`
 - **Format**:
   - 1 byte: Content Switch
-  - 4 bytes: Auth Code Length (integer)
+  - 1 byte: Auth Code Length (integer)
   - Variable: Auth Code
 
 #### Visual Representation:
 
 ```
-+------------------+----------------------------+-----------------+
-| Content Switch   | Length of Auth Code        | Auth Code       |
-| (1 byte)         | (4 bytes, integer)         | (variable size) |
-+------------------+----------------------------+-----------------+
++------------------+---------------------------+-----------------+
+| Content Switch   | Length of Auth Code       | Auth Code       |
+| (1 byte)         | (1 byte, integer)         | (variable size) |
++------------------+---------------------------+-----------------+
 ```
 
 ```python
@@ -78,7 +78,7 @@ auth_code = b"123456"
 
 payload = (
     content_switch +
-    struct.pack("<i", len(auth_code)) +
+    bytes([len(auth_code)]) +
     auth_code
 )
 encoded = base64.b64encode(payload).decode("utf-8")
@@ -90,19 +90,23 @@ print(encoded)
 - **Switch**: `2`
 - **Format**:
   - 1 byte: Content Switch
-  - 1 byte: Bridge Letter
-  - 4 bytes: Auth Code Length (integer)
+  - 1 byte: Auth Code Length (integer)
   - 4 bytes: Ciphertext Length (integer)
+  - 1 byte: Bridge Letter
   - Variable: Auth Code
   - Variable: Ciphertext
+
+> [!NOTE]
+>
+> For detailed instructions on using the Double Ratchet algorithm to create ciphertext, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
 
 #### Visual Representation:
 
 ```
-+------------------+-------------------+----------------------------+----------------------------+------------------+----------------------------+
-| Content Switch   | Bridge Letter     | Length of Auth Code        | Length of Ciphertext       | Auth Code        | Ciphertext                 |
-| (1 byte)         | (1 byte)          | (4 bytes, integer)         | (4 bytes, integer)         | (variable size)  | (variable size)            |
-+------------------+-------------------+----------------------------+----------------------------+------------------+----------------------------+
++------------------+---------------------------+----------------------------+-------------------+------------------+----------------------------+
+| Content Switch   | Length of Auth Code       | Length of Ciphertext       | Bridge Letter     | Auth Code        | Ciphertext                 |
+| (1 byte)         | (1 byte, integer)         | (4 bytes, integer)         | (1 byte)          | (variable size)  | (variable size)            |
++------------------+---------------------------+----------------------------+-------------------+------------------+----------------------------+
 ```
 
 ```python
@@ -113,9 +117,9 @@ ciphertext = b"Hello world!"
 
 payload = (
     content_switch +
-    bridge_letter +
-    struct.pack("<i", len(auth_code)) +
+    bytes([len(auth_code)]) +
     struct.pack("<i", len(ciphertext)) +
+    bridge_letter +
     auth_code +
     ciphertext
 )
@@ -128,17 +132,21 @@ print(encoded)
 - **Switch**: `3`
 - **Format**:
   - 1 byte: Content Switch
-  - 1 byte: Bridge Letter
   - 4 bytes: Ciphertext Length (integer)
+  - 1 byte: Bridge Letter
   - Variable: Ciphertext
+
+> [!NOTE]
+>
+> For detailed instructions on using the Double Ratchet algorithm to create ciphertext, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
 
 #### Visual Representation:
 
 ```
-+------------------+------------------+-----------------------------+----------------------------+
-| Content Switch   | Bridge Letter    | Length of Ciphertext        | Ciphertext                 |
-| (1 byte)         | (1 byte)         | (4 bytes, integer)          | (variable size)            |
-+------------------+------------------+-----------------------------+----------------------------+
++------------------+-----------------------------+------------------+----------------------------+
+| Content Switch   | Length of Ciphertext        | Bridge Letter    | Ciphertext                 |
+| (1 byte)         | (4 bytes, integer)          | (1 byte)         | (variable size)            |
++------------------+-----------------------------+------------------+----------------------------+
 ```
 
 ```python
@@ -148,8 +156,8 @@ ciphertext = b"Hello world!"
 
 payload = (
     content_switch +
-    bridge_letter +
     struct.pack("<i", len(ciphertext)) +
+    bridge_letter +
     ciphertext
 )
 encoded = base64.b64encode(payload).decode("utf-8")

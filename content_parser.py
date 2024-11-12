@@ -27,57 +27,53 @@ def decode_content(content: str) -> tuple:
         payload = base64.b64decode(content)
         result = {}
 
-        content_switch = payload[0]
+        match payload[0]:
+            case 0:
+                len_public_key = struct.unpack("<i", payload[1:5])[0]
+                public_key = payload[5 : 5 + len_public_key]
+                result = {"public_key": public_key}
 
-        if content_switch == 0:
-            len_public_key = struct.unpack("<i", payload[1:5])[0]
-            public_key = payload[5 : 5 + len_public_key]
-            result = {"public_key": public_key}
+            case 1:
+                len_auth_code = payload[1]
+                auth_code = payload[2 : 2 + len_auth_code].decode("utf-8")
+                result = {"auth_code": auth_code}
 
-        elif content_switch == 1:
-            len_auth_code = struct.unpack("<i", payload[1:5])[0]
-            auth_code = payload[5 : 5 + len_auth_code].decode("utf-8")
-            result = {"auth_code": auth_code}
+            case 2:
+                len_auth_code = payload[1]
+                len_ciphertext = struct.unpack("<i", payload[2:6])[0]
+                bridge_letter = chr(payload[6])
 
-        elif content_switch == 2:
-            bridge_letter = chr(payload[1])
-            len_auth_code = struct.unpack("<i", payload[2:6])[0]
-            len_ciphertext = struct.unpack(
-                "<i", payload[6 + len_auth_code : 10 + len_auth_code]
-            )[0]
+                auth_code_start = 7
+                auth_code_end = ciphertext_start = auth_code_start + len_auth_code
+                ciphertext_end = ciphertext_start + len_ciphertext
 
-            auth_code_start = 10
-            auth_code_end = auth_code_start + len_auth_code
-            ciphertext_start = auth_code_end
-            ciphertext_end = ciphertext_start + len_ciphertext
+                auth_code = payload[auth_code_start:auth_code_end].decode("utf-8")
+                content_ciphertext = payload[ciphertext_start:ciphertext_end]
 
-            auth_code = payload[auth_code_start:auth_code_end].decode("utf-8")
-            content_ciphertext = payload[ciphertext_start:ciphertext_end]
+                result = {
+                    "auth_code": auth_code,
+                    "bridge_letter": bridge_letter,
+                    "content_ciphertext": content_ciphertext,
+                }
 
-            result = {
-                "auth_code": auth_code,
-                "bridge_letter": bridge_letter,
-                "content_ciphertext": content_ciphertext,
-            }
+            case 3:
+                len_ciphertext = struct.unpack("<i", payload[1:5])[0]
+                bridge_letter = chr(payload[5])
+                content_ciphertext = payload[6 : 6 + len_ciphertext]
 
-        elif content_switch == 3:
-            bridge_letter = chr(payload[1])
-            len_ciphertext = struct.unpack("<i", payload[2:6])[0]
-            content_ciphertext = payload[6 : 6 + len_ciphertext]
+                result = {
+                    "bridge_letter": bridge_letter,
+                    "content_ciphertext": content_ciphertext,
+                }
 
-            result = {
-                "bridge_letter": bridge_letter,
-                "content_ciphertext": content_ciphertext,
-            }
-
-        else:
-            raise ValueError(
-                f"Invalid content switch: {content_switch}. "
-                "Expected 0 (auth request), "
-                "1 (auth code), "
-                "2 (auth code and payload), "
-                "or 3 (payload only)."
-            )
+            case _:
+                raise ValueError(
+                    f"Invalid content switch: {payload[0]}. "
+                    "Expected 0 (auth request), "
+                    "1 (auth code), "
+                    "2 (auth code and payload), "
+                    "or 3 (payload only)."
+                )
 
         return result, None
 
