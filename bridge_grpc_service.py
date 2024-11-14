@@ -244,12 +244,8 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     ownership_proof_response=decoded_result["auth_code"]
                 )
 
-                # This is a patch
-                # TODO: Remove this comment and formalize this method, we need to release app
-                """
                 if create_error:
                     return create_error
-                """
 
                 if "content_ciphertext" not in decoded_result:
                     return response(
