@@ -124,19 +124,18 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
             )
 
             if create_entity_error:
+                error_message = create_entity_error.details()
+                if error_message.startswith("OTP not initiated. "):
+                    return response(message=error_message, success=True), None
                 return None, self.handle_create_grpc_error_response(
-                    context,
-                    response,
-                    create_entity_error.details(),
-                    create_entity_error.code(),
+                    context, response, error_message, create_entity_error.code()
                 )
 
             if not create_entity_response.success:
-                if not create_entity_response.message.startswith("OTP not initiated. "):
-                    return None, response(
-                        message=create_entity_response.message,
-                        success=create_entity_response.success,
-                    )
+                return None, response(
+                    message=create_entity_response.message,
+                    success=create_entity_response.success,
+                )
 
             return (
                 response(
