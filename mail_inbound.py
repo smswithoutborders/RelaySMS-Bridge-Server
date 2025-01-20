@@ -4,6 +4,8 @@ of the GNU General Public License, v. 3.0. If a copy of the GNU General
 Public License was not distributed with this file, see <https://www.gnu.org/licenses/>.
 """
 
+import struct
+import base64
 import ssl
 import re
 import time
@@ -33,6 +35,28 @@ SSL_KEY = get_env_var("SSL_CERTIFICATE_KEY_FILE", strict=True)
 logger = get_logger("mail.inbound")
 
 PHONE_NUMBER_REGEX = re.compile(r"<(\d+)_bridge@relaysms\.me>")
+
+
+def construct_sms_payload(encrypted_payload: str) -> str:
+    """
+    Construct the SMS payload for the RelaySMS app.
+
+    Args:
+        encrypted_payload (str): The encrypted payload.
+
+    Returns:
+        str: The constructed SMS payload.
+    """
+    bridge_letter = b"e"
+    content_ciphertext = base64.b64decode(encrypted_payload)
+
+    sms_payload = (
+        f"RelaySMS Reply Please paste this entire message in your RelaySMS app \n"
+        f"{base64.b64encode(
+            struct.pack('<i', len(content_ciphertext)) + bridge_letter + content_ciphertext
+        ).decode('utf-8')}"
+    )
+    return sms_payload
 
 
 def authenticate_phonenumber(phone_number: str) -> tuple[bool, str]:
@@ -136,11 +160,20 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
         logger.error("Authentication error: %s", err)
         return
 
-    payload = f"{sender}:{','.join(cc_recipients)}:{','.join(bcc_recipients)}:{subject}:{message_body}"
-    logger.debug("Constructed Payload: %s", payload)
+    reply_payload = (
+        f"{sender}:{','.join(cc_recipients)}:{','.join(bcc_recipients)}:"
+        f"{subject}:{message_body}"
+    )
+    logger.debug("Constructed Payload: %s", reply_payload)
 
-    encrypted_payload = encrypt_payload(payload)
+    encrypted_payload = encrypt_payload(
+        phone_number=f"+{phone_number}", payload_plaintext=reply_payload
+    )
     logger.debug("Encrypted Payload: %s", encrypted_payload)
+
+    sms_payload = construct_sms_payload(encrypted_payload=encrypted_payload)
+
+    print(sms_payload)
 
 
 def main() -> None:
