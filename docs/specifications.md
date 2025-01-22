@@ -8,6 +8,10 @@
   - [Auth Code Payload](#auth-code-payload)
   - [Auth Code and Payload](#auth-code-and-payload)
   - [Payload Only](#payload-only)
+- [Reply Data Format](#reply-data-format)
+  - [Content Format](#content-format-1)
+  - [Payload Format](#payload-format-1)
+  - [SMS Payload Format](#sms-payload-format)
 
 ## Content Format
 
@@ -163,3 +167,70 @@ payload = (
 encoded = base64.b64encode(payload).decode("utf-8")
 print(encoded)
 ```
+
+## Reply Data Format
+
+### Content Format
+
+The Bridge supports the following reply content formats:
+
+1. **Email**: `sender:cc:bcc:subject:body`
+   - Example: Email Bridge
+
+- **sender**: The email address of the sender, formatted as `Name <email>` if the sender's name is available.
+- **cc**: A comma-separated list of CC recipients, formatted as `Name <email>` if available.
+- **bcc**: A comma-separated list of BCC recipients, formatted as `Name <email>` if available.
+- **subject**: The subject line of the email.
+- **body**: The reply message body (parsed to exclude quoted text).
+
+#### Example:
+
+```
+John Doe <john.doe@example.com>:jane.doe@example.com:michael.smith@example.com:Meeting Update:Thank you for the update.
+```
+
+### Payload Format
+
+- **Format**:
+  - 4 bytes: Ciphertext Length (integer)
+  - 1 byte: Bridge Letter
+  - Variable: Ciphertext
+
+> [!NOTE]
+>
+> For detailed instructions on using the Double Ratchet algorithm to create ciphertext, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
+
+#### Visual Representation:
+
+```
++-----------------------------+------------------+----------------------------+
+| Length of Ciphertext        | Bridge Letter    | Ciphertext                 |
+| (4 bytes, integer)          | (1 byte)         | (variable size)            |
++-----------------------------+------------------+----------------------------+
+```
+
+```python
+bridge_letter = b"e"
+ciphertext = b"John Doe <john.doe@example.com>:jane.doe@example.com::Meeting Update:Thank you for the update."
+
+payload = (
+    struct.pack("<i", len(ciphertext)) +
+    bridge_letter +
+    ciphertext
+)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
+```
+
+### SMS Payload Format
+
+The SMS payload is used for transmitting the encrypted reply message to the RelaySMS app.
+
+### Payload Format
+
+```
+RelaySMS Reply Please paste this entire message in your RelaySMS app \n
+<base64_encoded_payload>
+```
+
+Refer to [Reply Payload Format](#payload-format-1) for how to generate the `<base64_encoded_payload>`
