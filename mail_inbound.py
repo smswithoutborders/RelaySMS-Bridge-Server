@@ -4,6 +4,7 @@ of the GNU General Public License, v. 3.0. If a copy of the GNU General
 Public License was not distributed with this file, see <https://www.gnu.org/licenses/>.
 """
 
+import datetime
 import struct
 import base64
 import ssl
@@ -12,6 +13,7 @@ import time
 import socket
 import imaplib
 import traceback
+import sentry_sdk
 
 from imap_tools import (
     AND,
@@ -22,6 +24,7 @@ from imap_tools import (
 )
 from email_reply_parser import EmailReplyParser
 from vault_grpc_client import authenticate_bridge_entity, encrypt_payload
+from sms_outbound import send_with_twilio
 from utils import get_logger, get_env_var
 
 IMAP_SERVER = get_env_var("BRIDGE_IMAP_SERVER", strict=True)
@@ -31,10 +34,28 @@ IMAP_PASSWORD = get_env_var("BRIDGE_IMAP_PASSWORD", strict=True)
 MAIL_FOLDER = get_env_var("BRIDGE_MAIL_FOLDER", "INBOX")
 SSL_CERTIFICATE = get_env_var("SSL_CERTIFICATE_FILE", strict=True)
 SSL_KEY = get_env_var("SSL_CERTIFICATE_KEY_FILE", strict=True)
+MOCK_REPLY_SMS = get_env_var("MOCK_REPLY_SMS")
+MOCK_REPLY_SMS = (
+    MOCK_REPLY_SMS.lower() == "true" if MOCK_REPLY_SMS is not None else False
+)
 
 logger = get_logger("mail.inbound")
 
 PHONE_NUMBER_REGEX = re.compile(r"<(\d+)_bridge@relaysms\.me>")
+
+sentry_sdk.init(
+    dsn=get_env_var("SENTRY_DSN"),
+    server_name="Bridge",
+    traces_sample_rate=float(
+        get_env_var("SENTRY_TRACES_SAMPLE_RATE", default_value=1.0)
+    ),
+    profiles_sample_rate=float(
+        get_env_var("SENTRY_PROFILES_SAMPLE_RATE", default_value=1.0)
+    ),
+)
+
+sentry_sdk.set_tag("project", "Bridge")
+sentry_sdk.set_tag("service_name", "Bridge Service")
 
 
 def construct_sms_payload(encrypted_payload: str) -> str:
@@ -164,16 +185,37 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
         f"{sender}:{','.join(cc_recipients)}:{','.join(bcc_recipients)}:"
         f"{subject}:{message_body}"
     )
+
     logger.debug("Constructed Payload: %s", reply_payload)
 
-    encrypted_payload = encrypt_payload(
-        phone_number=f"+{phone_number}", payload_plaintext=reply_payload
+    e_164_phonenumber = f"+{phone_number}"
+    encrypted_payload, encryption_error = encrypt_payload(
+        phone_number=e_164_phonenumber, payload_plaintext=reply_payload
     )
-    logger.debug("Encrypted Payload: %s", encrypted_payload)
 
-    sms_payload = construct_sms_payload(encrypted_payload=encrypted_payload)
+    if encryption_error:
+        logger.error("Encryption failed: %s", encryption_error)
+        return
 
-    print(sms_payload)
+    logger.debug("Encrypted Payload: %s", encrypted_payload.payload_ciphertext)
+
+    sms_payload = construct_sms_payload(
+        encrypted_payload=encrypted_payload.payload_ciphertext
+    )
+
+    if MOCK_REPLY_SMS:
+        is_sent = True
+        sentry_sdk.capture_message(sms_payload, level="info")
+    else:
+        is_sent = send_with_twilio(e_164_phonenumber, message=sms_payload)
+
+    if is_sent:
+        delete_email(mailbox, email_uid)
+
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        publish_alert = f"Successfully processed and sent reply at {timestamp}."
+        sentry_sdk.capture_message(publish_alert, level="info")
+        logger.info(publish_alert)
 
 
 def main() -> None:

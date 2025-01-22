@@ -109,6 +109,41 @@ def decrypt_payload(phone_number, payload_ciphertext, **kwargs):
 
 
 @grpc_call()
+def encrypt_payload(phone_number, payload_plaintext, **kwargs):
+    """
+    Sends a request to encrypt the provided plaintext payload.
+
+    Args:
+        phone_number (str): The phone number associated with the bridge entity.
+        payload_plaintext (str): The plaintext payload to be encrypted.
+        **kwargs:
+            - stub (object): The gRPC client stub for making the request.
+
+    Returns:
+        tuple: A tuple containing:
+            - response (object): The vault server's response.
+            - error (Exception or None): None if successful, otherwise the encountered exception.
+    """
+    stub = kwargs["stub"]
+
+    request = vault_pb2.EncryptPayloadRequest(
+        phone_number=phone_number,
+        payload_plaintext=payload_plaintext,
+    )
+
+    logger.debug(
+        "Initiating encryption request using phone_number='%s'.",
+        mask_sensitive_info(phone_number),
+    )
+
+    response = stub.EncryptPayload(request)
+
+    logger.info("Encryption successful using phone_number.")
+
+    return response, None
+
+
+@grpc_call()
 def create_bridge_entity(phone_number, **kwargs):
     """
     Sends a request to create a bridge entity.
