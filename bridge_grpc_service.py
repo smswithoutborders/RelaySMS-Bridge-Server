@@ -112,7 +112,11 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
 
         response = bridge_pb2.PublishContentResponse
 
-        def create_entity(client_publish_pub_key=None, ownership_proof_response=None):
+        def create_entity(
+            client_publish_pub_key=None,
+            ownership_proof_response=None,
+            server_pub_key_identifier=None,
+        ):
             parsed_number = phonenumbers.parse(request.metadata["From"])
             region_code = geocoder.region_code_for_number(parsed_number)
 
@@ -121,6 +125,11 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 country_code=region_code,
                 client_publish_pub_key=client_publish_pub_key,
                 ownership_proof_response=ownership_proof_response,
+                server_pub_key_identifier=(
+                    str(server_pub_key_identifier)
+                    if server_pub_key_identifier
+                    else None
+                ),
             )
 
             if create_entity_error:
@@ -219,43 +228,37 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     error_prefix="Error Decoding Content",
                     error_type="UNKNOWN",
                 )
-
-            if decoded_result.get("public_key"):
+            if public_key := decoded_result.get("public_key"):
                 create_response, create_error = create_entity(
-                    client_publish_pub_key=base64.b64encode(
-                        decoded_result["public_key"]
-                    ).decode("utf-8")
+                    client_publish_pub_key=base64.b64encode(public_key).decode("utf-8"),
+                    server_pub_key_identifier=decoded_result.get("skid"),
                 )
                 if create_error:
                     return create_error
-                return create_response
+                if "skid" not in decoded_result:
+                    return create_response
 
-            if "bridge_letter" in decoded_result:
-                bridge_info, bridge_info_error = get_bridge_info(
-                    decoded_result["bridge_letter"]
-                )
+            bridge_info = None
+            if bridge_letter := decoded_result.get("bridge_letter"):
+                bridge_info, bridge_info_error = get_bridge_info(bridge_letter)
                 if bridge_info_error:
                     return bridge_info_error
-            else:
-                bridge_info = None
 
-            if decoded_result.get("auth_code"):
+            if auth_code := decoded_result.get("auth_code"):
                 create_response, create_error = create_entity(
-                    ownership_proof_response=decoded_result["auth_code"]
+                    ownership_proof_response=auth_code
                 )
-
                 if create_error:
                     return create_error
-
                 if "content_ciphertext" not in decoded_result:
-                    return response(
-                        success=True,
-                        message=create_response.message,
-                    )
+                    return response(success=True, message=create_response.message)
 
-            else:
+            if (
+                "skid" not in decoded_result
+                and "auth_code" not in decoded_result
+                and "public_key" not in decoded_result
+            ):
                 _, authenticate_error = authenticate_entity()
-
                 if authenticate_error:
                     return authenticate_error
 
@@ -263,14 +266,12 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 phone_number=request.metadata["From"],
                 encrypted_content=decoded_result["content_ciphertext"],
             )
-
             if decrypt_error:
                 return decrypt_error
 
             extracted_content, extraction_error = extract_content(
                 bridge_name=bridge_info["name"], content=decrypted_content
             )
-
             if extraction_error:
                 return self.handle_create_grpc_error_response(
                     context,
@@ -280,22 +281,15 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 )
 
             if bridge_info["name"] == "email_bridge":
-                email_bridge_module_name = "email_bridge.simplelogin.client"
-                email_bridge_module_path = os.path.join(
-                    "bridges", "email_bridge", "simplelogin", "client.py"
-                )
-                email_bridge_directory = os.path.join("bridges", "email_bridge")
-
                 email_bridge_module = import_module_dynamically(
-                    email_bridge_module_name,
-                    email_bridge_module_path,
-                    email_bridge_directory,
+                    "email_bridge.simplelogin.client",
+                    os.path.join("bridges", "email_bridge", "simplelogin", "client.py"),
+                    os.path.join("bridges", "email_bridge"),
                 )
 
                 to_email, cc_email, bcc_email, email_subject, email_body = (
                     extracted_content
                 )
-
                 email_send_success, email_send_message = email_bridge_module.send_email(
                     phone_number=request.metadata["From"],
                     to_email=to_email,
@@ -304,7 +298,6 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     cc_email=cc_email,
                     bcc_email=bcc_email,
                 )
-
                 if not email_send_success:
                     return self.handle_create_grpc_error_response(
                         context,

@@ -3,15 +3,19 @@
 ## Table of Contents
 
 - [Content Format](#content-format)
-- [Payload Format](#payload-format)
+- [Payload Format V0](#payload-format-v0)
   - [Auth Request Payload](#auth-request-payload)
   - [Auth Code Payload](#auth-code-payload)
   - [Auth Code and Payload](#auth-code-and-payload)
   - [Payload Only](#payload-only)
+- [Payload Format V1](#payload-format-v1)
+  - [Auth Request and Payload](#auth-request-and-payload)
+  - [Payload Only](#payload-only-1)
 - [Reply Data Format](#reply-data-format)
   - [Content Format](#content-format-1)
+  - [Payload Format](#payload-format)
+- [SMS Payload Format](#sms-payload-format)
   - [Payload Format](#payload-format-1)
-  - [SMS Payload Format](#sms-payload-format)
 
 ## Content Format
 
@@ -20,7 +24,7 @@ The Bridge supports the following content formats:
 1. **Email**: `to:cc:bcc:subject:body`
    - Example: Email Bridge
 
-## Payload Format
+## Payload Format V0
 
 | **Payload Type**                                | **Switch** | **Description**                                       |
 | ----------------------------------------------- | ---------- | ----------------------------------------------------- |
@@ -168,6 +172,108 @@ encoded = base64.b64encode(payload).decode("utf-8")
 print(encoded)
 ```
 
+## Payload Format V1
+
+> [!NOTE]
+>
+> ### Versioning Scheme
+>
+> - **Version Marker**: The first byte of the payload now indicates the version of the payload format. If the first byte is `0x0A` (decimal `10`), the payload is in **Version 1 (V1)** format, which includes a version marker.
+> - **Old Formats**: If the first byte is between `0x00` and `0x03` (decimal `0` to `3`), the payload is considered to be from **Version 0 (V0)**, and no versioning is present.
+
+| **Payload Type**                                      | **Switch** | **Description**                 |
+| ----------------------------------------------------- | ---------- | ------------------------------- |
+| [Auth Request and Payload](#auth-request-and-payload) | `0`        | Contains a client public key    |
+| [Payload Only](#payload-only-1)                       | `1`        | Contains encrypted content only |
+
+### Auth Request and Payload
+
+- **Switch**: `0`
+- **Format**:
+  - 1 byte: Version Marker (e.g., `0x0A`)
+  - 1 byte: Switch Value
+  - 1 byte: Client Public Key Length (integer)
+  - 2 bytes: Ciphertext Length (integer)
+  - 1 byte: Bridge Letter
+  - 1 byte: Server Key Identifier (integer)
+  - Variable: Client Public Key
+  - Variable: Ciphertext
+
+> [!NOTE]
+>
+> For detailed instructions on using the Double Ratchet algorithm to create ciphertext, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
+
+#### Visual Representation:
+
+```
++----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+
+| Version Marker | Switch Value | Length of Client Public Key | Length of Ciphertext | Bridge Letter | Server Key Identifier | Client Public Key | Ciphertext      |
+| (1 byte)       | (1 byte)     | (1 byte)                    | (2 bytes)            | (1 byte)      | (1 byte)              | (variable size)   | (variable size) |
++----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+
+```
+
+```python
+version = bytes([10])  # b'\x0A'
+switch_value = bytes([0])  # b'\x00'
+server_key_id = bytes([0])  # b'\x00'
+bridge_letter = b"e"
+client_public_key = b"client_pub_key"
+ciphertext = b"Hello world!"
+
+payload = (
+    version +
+    switch_value +
+    bytes([len(client_public_key)]) +
+    struct.pack("<H", len(ciphertext)) +
+    bridge_letter +
+    server_key_id +
+    client_public_key +
+    ciphertext
+)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
+```
+
+### Payload Only
+
+- **Switch**: `1`
+- **Format**:
+  - 1 byte: Version Marker (e.g., `0x0A`)
+  - 1 byte: Switch Value
+  - 2 bytes: Ciphertext Length (integer)
+  - 1 byte: Bridge Letter
+  - Variable: Ciphertext
+
+> [!NOTE]
+>
+> For detailed instructions on using the Double Ratchet algorithm to create ciphertext, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
+
+#### Visual Representation:
+
+```
++----------------+--------------+--------------------- +---------------+---------------- +
+| Version Marker | Switch Value | Length of Ciphertext | Bridge Letter | Ciphertext      |
+| (1 byte)       | (1 byte)     | (2 bytes)            | (1 byte)      | (variable size) |
++----------------+--------------+--------------------- +---------------+---------------- +
+```
+
+```python
+version = bytes([10])  # b'\x0A'
+switch_value = bytes([1])  # b'\x01'
+bridge_letter = b"e"
+ciphertext = b"Hello world!"
+
+payload = (
+    version +
+    switch_value +
+    struct.pack("<H", len(ciphertext)) +
+    bridge_letter +
+    ciphertext
+)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
+```
+
 ## Reply Data Format
 
 ### Content Format
@@ -222,7 +328,7 @@ encoded = base64.b64encode(payload).decode("utf-8")
 print(encoded)
 ```
 
-### SMS Payload Format
+## SMS Payload Format
 
 The SMS payload is used for transmitting the encrypted reply message to the RelaySMS app.
 
@@ -233,4 +339,4 @@ RelaySMS Reply Please paste this entire message in your RelaySMS app \n
 <base64_encoded_payload>
 ```
 
-Refer to [Reply Payload Format](#payload-format-1) for how to generate the `<base64_encoded_payload>`
+Refer to [Reply Payload Format](#payload-format) for how to generate the `<base64_encoded_payload>`

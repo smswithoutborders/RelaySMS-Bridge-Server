@@ -165,12 +165,14 @@ def create_bridge_entity(phone_number, **kwargs):
     country_code = kwargs.get("country_code")
     client_publish_pub_key = kwargs.get("client_publish_pub_key")
     ownership_proof_response = kwargs.get("ownership_proof_response")
+    server_pub_key_identifier = kwargs.get("server_pub_key_identifier")
 
     request = vault_pb2.CreateBridgeEntityRequest(
         phone_number=phone_number,
         country_code=country_code,
         client_publish_pub_key=client_publish_pub_key,
         ownership_proof_response=ownership_proof_response,
+        server_pub_key_identifier=server_pub_key_identifier,
     )
 
     logger.debug(
