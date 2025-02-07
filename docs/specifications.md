@@ -3,7 +3,7 @@
 ## Table of Contents
 
 - [Content Format](#content-format)
-- [Supported Payload Versions][#supported-payload-versions]
+- [Supported Payload Versions](#supported-payload-versions)
 - [Payload Format V0](#payload-format-v0)
   - [Auth Request Payload](#auth-request-payload)
   - [Auth Code Payload](#auth-code-payload)
