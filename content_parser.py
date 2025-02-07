@@ -82,7 +82,7 @@ def decode_v1(payload: bytes) -> tuple:
         tuple: (result, error)
     """
     result = {}
-    version = payload[0]
+    version = f"v{payload[0]-9}"
     switch_value = payload[1]
 
     match switch_value:

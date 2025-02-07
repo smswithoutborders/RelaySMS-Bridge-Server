@@ -116,6 +116,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
             client_publish_pub_key=None,
             ownership_proof_response=None,
             server_pub_key_identifier=None,
+            server_pub_key_version=None,
         ):
             parsed_number = phonenumbers.parse(request.metadata["From"])
             region_code = geocoder.region_code_for_number(parsed_number)
@@ -127,9 +128,10 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 ownership_proof_response=ownership_proof_response,
                 server_pub_key_identifier=(
                     str(server_pub_key_identifier)
-                    if server_pub_key_identifier
+                    if server_pub_key_identifier is not None
                     else None
                 ),
+                server_pub_key_version=server_pub_key_version,
             )
 
             if create_entity_error:
@@ -232,6 +234,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 create_response, create_error = create_entity(
                     client_publish_pub_key=base64.b64encode(public_key).decode("utf-8"),
                     server_pub_key_identifier=decoded_result.get("skid"),
+                    server_pub_key_version=decoded_result.get("version"),
                 )
                 if create_error:
                     return create_error
