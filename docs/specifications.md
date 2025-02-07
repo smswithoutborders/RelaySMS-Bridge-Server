@@ -27,10 +27,10 @@ The Bridge supports the following content formats:
 
 ## Supported Payload Versions
 
-| **Version** | **Hexadecimal Value** | **Decimal Value** | **Description**                                             |
-| ----------- | --------------------- | ----------------- | ----------------------------------------------------------- |
-| v0          | `None`                | `None`            | No explicit version marker, backward-compatible formats.    |
-| v1          | `0x0A`                | `10`              | Includes a version marker as the first byte of the payload. |
+| **Version**              | **Hexadecimal Value** | **Decimal Value** | **Description**                                             |
+| ------------------------ | --------------------- | ----------------- | ----------------------------------------------------------- |
+| [v0](#payload-format-v0) | `None`                | `None`            | No explicit version marker, backward-compatible formats.    |
+| [v1](#payload-format-v1) | `0x0A`                | `10`              | Includes a version marker as the first byte of the payload. |
 
 ## Payload Format V0
 
