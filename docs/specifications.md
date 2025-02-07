@@ -3,6 +3,7 @@
 ## Table of Contents
 
 - [Content Format](#content-format)
+- [Supported Payload Versions][#supported-payload-versions]
 - [Payload Format V0](#payload-format-v0)
   - [Auth Request Payload](#auth-request-payload)
   - [Auth Code Payload](#auth-code-payload)
@@ -23,6 +24,13 @@ The Bridge supports the following content formats:
 
 1. **Email**: `to:cc:bcc:subject:body`
    - Example: Email Bridge
+
+## Supported Payload Versions
+
+| **Version** | **Hexadecimal Value** | **Decimal Value** | **Description**                                             |
+| ----------- | --------------------- | ----------------- | ----------------------------------------------------------- |
+| v0          | `None`                | `None`            | No explicit version marker, backward-compatible formats.    |
+| v1          | `0x0A`                | `10`              | Includes a version marker as the first byte of the payload. |
 
 ## Payload Format V0
 
@@ -178,7 +186,7 @@ print(encoded)
 >
 > ### Versioning Scheme
 >
-> - **Version Marker**: The first byte of the payload now indicates the version of the payload format. If the first byte is `0x0A` (decimal `10`), the payload is in **Version 1 (V1)** format, which includes a version marker.
+> - **Version Marker**: The first byte of the payload now indicates the version format. If the first byte is `0x0A` (decimal `10`), the payload follows the **Version 1 (V1)** format, which includes a version marker. [See available versions](#supported-payload-versions).
 > - **Old Formats**: If the first byte is between `0x00` and `0x03` (decimal `0` to `3`), the payload is considered to be from **Version 0 (V0)**, and no versioning is present.
 
 | **Payload Type**                                      | **Switch** | **Description**                 |
