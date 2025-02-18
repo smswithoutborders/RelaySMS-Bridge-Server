@@ -4,10 +4,8 @@ of the GNU General Public License, v. 3.0. If a copy of the GNU General
 Public License was not distributed with this file, see <https://www.gnu.org/licenses/>.
 """
 
-import datetime
 import logging
 from db_models import Publications
-from typing import Optional
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"

@@ -144,6 +144,7 @@ def import_module_dynamically(module_name, module_file_path, bridge_directory):
 
     return module
 
+
 def ensure_database_exists(host, user, password, database_name):
     """
     Decorator that ensures a MySQL database exists before executing a function.
@@ -189,6 +190,7 @@ def ensure_database_exists(host, user, password, database_name):
         return wrapper
 
     return decorator
+
 
 def create_tables(models):
     """

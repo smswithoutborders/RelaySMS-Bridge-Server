@@ -315,7 +315,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     )
             create_publication_entry(
                 platform_name=bridge_info["name"], source="bridge", status="success"
-            )       
+            )
             return response(
                 success=True,
                 message=f"Successfully published {bridge_info['name']} message",
