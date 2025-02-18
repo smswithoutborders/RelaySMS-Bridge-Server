@@ -2,3 +2,6 @@ grpc-interceptor==0.15.4
 grpcio==1.70.0
 grpcio-tools==1.70.0
 phonenumbers==8.13.53
+pymysql==1.1.1
+peewee>=3.15.0
+

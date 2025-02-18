@@ -25,6 +25,7 @@ from vault_grpc_client import (
 )
 
 from utils import get_logger, get_bridge_details_by_shortcode, import_module_dynamically
+from publications import create_publication_entry
 
 logger = get_logger(__name__)
 
@@ -312,13 +313,18 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                         email_send_message,
                         grpc.StatusCode.INVALID_ARGUMENT,
                     )
-
+            create_publication_entry(
+                platform_name=bridge_info["name"], source="bridge", status="success"
+            )       
             return response(
                 success=True,
                 message=f"Successfully published {bridge_info['name']} message",
             )
 
         except Exception as exc:
+            create_publication_entry(
+                platform_name=bridge_info["name"], source="bridge", status="failed"
+            )
             return self.handle_create_grpc_error_response(
                 context,
                 response,

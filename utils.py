@@ -10,7 +10,11 @@ import os
 import sys
 import importlib.util
 import json
+from functools import wraps
 from logutils import get_logger
+from peewee import DatabaseError
+
+import pymysql
 
 logger = get_logger(__name__)
 
@@ -139,3 +143,90 @@ def import_module_dynamically(module_name, module_file_path, bridge_directory):
     spec.loader.exec_module(module)
 
     return module
+
+def ensure_database_exists(host, user, password, database_name):
+    """
+    Decorator that ensures a MySQL database exists before executing a function.
+
+    Args:
+        host (str): The host address of the MySQL server.
+        user (str): The username for connecting to the MySQL server.
+        password (str): The password for connecting to the MySQL server.
+        database_name (str): The name of the database to ensure existence.
+
+    Returns:
+        function: Decorated function.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                connection = pymysql.connect(
+                    host=host,
+                    user=user,
+                    password=password,
+                    charset="utf8mb4",
+                    collation="utf8mb4_unicode_ci",
+                )
+                with connection.cursor() as cursor:
+                    sql = "CREATE DATABASE IF NOT EXISTS " + database_name
+                    cursor.execute(sql)
+
+                logger.debug(
+                    "Database %s created successfully (if it didn't exist)",
+                    database_name,
+                )
+
+            except pymysql.MySQLError as error:
+                logger.error("Failed to create database: %s", error)
+
+            finally:
+                connection.close()
+
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+def create_tables(models):
+    """
+    Creates tables for the given models if they don't
+        exist in their specified database.
+
+    Args:
+        models(list): A list of Peewee Model classes.
+    """
+    if not models:
+        logger.warning("No models provided for table creation.")
+        return
+
+    try:
+        databases = {}
+        for model in models:
+            database = model._meta.database
+            if database not in databases:
+                databases[database] = []
+            databases[database].append(model)
+
+        for database, db_models in databases.items():
+            with database.atomic():
+                existing_tables = set(database.get_tables())
+                tables_to_create = [
+                    model
+                    for model in db_models
+                    if model._meta.table_name not in existing_tables
+                ]
+
+                if tables_to_create:
+                    database.create_tables(tables_to_create)
+                    logger.info(
+                        "Created tables: %s",
+                        [model._meta.table_name for model in tables_to_create],
+                    )
+                else:
+                    logger.debug("No new tables to create.")
+
+    except DatabaseError as e:
+        logger.error("An error occurred while creating tables: %s", e)
