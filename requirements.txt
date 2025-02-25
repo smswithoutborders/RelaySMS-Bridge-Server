@@ -6,3 +6,5 @@ imap-tools==1.9.0
 phonenumbers==8.13.53
 sentry-sdk==2.20.0
 twilio==9.4.3
+pymysql==1.1.1
+peewee>=3.15.0

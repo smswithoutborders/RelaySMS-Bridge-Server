@@ -25,6 +25,7 @@ from vault_grpc_client import (
 )
 
 from utils import get_logger, get_bridge_details_by_shortcode, import_module_dynamically
+from publications import create_publication_entry
 
 logger = get_logger(__name__)
 
@@ -211,7 +212,8 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     message=decrypt_payload_response.message,
                     success=decrypt_payload_response.success,
                 )
-            return decrypt_payload_response.payload_plaintext, None
+            country_code = decrypt_payload_response.country_code
+            return decrypt_payload_response.payload_plaintext, country_code, None
 
         try:
             invalid_fields_response = self.handle_request_field_validation(
@@ -265,7 +267,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 if authenticate_error:
                     return authenticate_error
 
-            decrypted_content, decrypt_error = decrypt_message(
+            decrypted_content, country_code, decrypt_error = decrypt_message(
                 phone_number=request.metadata["From"],
                 encrypted_content=decoded_result["content_ciphertext"],
             )
@@ -308,13 +310,18 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                         email_send_message,
                         grpc.StatusCode.INVALID_ARGUMENT,
                     )
-
+            create_publication_entry(
+                platform_name=bridge_info["name"], source="bridges", status="success", country_code=country_code
+            )
             return response(
                 success=True,
                 message=f"Successfully published {bridge_info['name']} message",
             )
 
         except Exception as exc:
+            create_publication_entry(
+                platform_name=bridge_info["name"], source="bridges", status="failed", country_code=country_code
+            )
             return self.handle_create_grpc_error_response(
                 context,
                 response,
