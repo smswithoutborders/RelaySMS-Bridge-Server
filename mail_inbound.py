@@ -25,7 +25,7 @@ from imap_tools import (
 from email_reply_parser import EmailReplyParser
 from vault_grpc_client import authenticate_bridge_entity, encrypt_payload
 from sms_outbound import send_with_twilio
-from utils import get_logger, get_env_var
+from utils import get_logger, get_env_var, get_config_value
 
 IMAP_SERVER = get_env_var("BRIDGE_IMAP_SERVER", strict=True)
 IMAP_PORT = int(get_env_var("BRIDGE_IMAP_PORT", 993))
@@ -38,10 +38,10 @@ MOCK_REPLY_SMS = get_env_var("MOCK_REPLY_SMS")
 MOCK_REPLY_SMS = (
     MOCK_REPLY_SMS.lower() == "true" if MOCK_REPLY_SMS is not None else False
 )
+ALIAS_EMAIL_PATTERNS = re.compile(get_config_value("patterns", "alias_email"))
+SMS_REPLY_TEMPLATE = get_config_value("templates", "sms_reply")
 
 logger = get_logger("mail.inbound")
-
-PHONE_NUMBER_REGEX = re.compile(r"<(\d+)_bridge@relaysms\.me>")
 
 sentry_sdk.init(
     dsn=get_env_var("SENTRY_DSN"),
@@ -56,28 +56,6 @@ sentry_sdk.init(
 
 sentry_sdk.set_tag("project", "Bridge")
 sentry_sdk.set_tag("service_name", "Bridge Service")
-
-
-def construct_sms_payload(encrypted_payload: str) -> str:
-    """
-    Construct the SMS payload for the RelaySMS app.
-
-    Args:
-        encrypted_payload (str): The encrypted payload.
-
-    Returns:
-        str: The constructed SMS payload.
-    """
-    bridge_letter = b"e"
-    content_ciphertext = base64.b64decode(encrypted_payload)
-
-    sms_payload = (
-        f"RelaySMS Reply Please paste this entire message in your RelaySMS app \n"
-        f"{base64.b64encode(
-            struct.pack('<i', len(content_ciphertext)) + bridge_letter + content_ciphertext
-        ).decode('utf-8')}"
-    )
-    return sms_payload
 
 
 def authenticate_phonenumber(phone_number: str) -> tuple[bool, str]:
@@ -146,28 +124,41 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
     email_uid = email.uid
     message_body = EmailReplyParser.parse_reply(email.text)
     subject = email.subject
+    receivers = email.to
+
+    if not email.from_:
+        logger.warning("No valid 'From' found. Discarding email.")
+        delete_email(mailbox, email_uid)
+        return
+
+    if not receivers:
+        logger.warning("No valid 'To' found. Discarding email.")
+        delete_email(mailbox, email_uid)
+        return
+
     sender = (
         f"{email.from_values.name} <{email.from_values.email}>"
         if email.from_values.name
         else email.from_values.email
     )
-    to_recipients = format_recipients(email.to_values)
-    cc_recipients = format_recipients(email.cc_values)
-    bcc_recipients = format_recipients(email.bcc_values)
+    cc_recipients = ",".join(format_recipients(email.cc_values))
+    bcc_recipients = ",".join(format_recipients(email.bcc_values))
+    email_timestamp = email.date.strftime("%Y-%m-%d %H:%M:%S (%Z)")
 
-    if not to_recipients:
-        logger.warning("No valid 'To' recipients found. Discarding email.")
-        delete_email(mailbox, email_uid)
-        return
+    phone_number = None
+    alias_address = None
 
-    regex_match = PHONE_NUMBER_REGEX.search(to_recipients[0])
-    phone_number = regex_match.group(1) if regex_match else None
+    for receiver in receivers:
+        match = ALIAS_EMAIL_PATTERNS.search(receiver)
+        if match:
+            phone_number = match.group(1)
+            alias_address = receiver
+            break
+
+        logger.debug("Invalid alias email: %s.", receiver)
 
     if not phone_number:
-        logger.info(
-            "Invalid alias reply address detected: '%s'. Discarding message.",
-            to_recipients[0],
-        )
+        logger.info("Invalid alias reply. Discarding message.")
         delete_email(mailbox, email_uid)
         return
 
@@ -182,8 +173,7 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
         return
 
     reply_payload = (
-        f"{sender}:{','.join(cc_recipients)}:{','.join(bcc_recipients)}:"
-        f"{subject}:{message_body}"
+        alias_address + sender + cc_recipients + bcc_recipients + subject + message_body
     )
 
     logger.debug("Constructed Payload: %s", reply_payload)
@@ -199,8 +189,22 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
 
     logger.debug("Encrypted Payload: %s", encrypted_payload.payload_ciphertext)
 
-    sms_payload = construct_sms_payload(
-        encrypted_payload=encrypted_payload.payload_ciphertext
+    bridge_letter = b"e"
+    content_ciphertext = base64.b64decode(encrypted_payload.payload_ciphertext)
+    sms_payload = SMS_REPLY_TEMPLATE.format(
+        reply_prompt="RelaySMS Reply Please paste this entire message in your RelaySMS app",
+        payload=base64.b64encode(
+            bytes([len(alias_address)])
+            + bytes([len(sender)])
+            + bytes([len(cc_recipients)])
+            + bytes([len(bcc_recipients)])
+            + bytes([len(subject)])
+            + struct.pack("<H", len(message_body))
+            + struct.pack("<H", len(content_ciphertext))
+            + bridge_letter
+            + content_ciphertext
+        ).decode("utf-8"),
+        timestamp=email_timestamp,
     )
 
     if MOCK_REPLY_SMS:

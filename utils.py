@@ -1,6 +1,4 @@
 """
-A module containing utility functions and helper methods.
-
 This program is free software: you can redistribute it under the terms
 of the GNU General Public License, v. 3.0. If a copy of the GNU General
 Public License was not distributed with this file, see <https://www.gnu.org/licenses/>.
@@ -10,11 +8,35 @@ import os
 import sys
 import importlib.util
 import json
+import configparser
 from logutils import get_logger
 
 logger = get_logger(__name__)
 
 BRIDGES_FILE_PATH = os.path.join("resources", "bridges.json")
+CONFIG_PATH = os.path.join("configs", "config.ini")
+
+config = configparser.ConfigParser()
+config.read(CONFIG_PATH)
+
+
+def get_config_value(section: str, key: str, fallback: str = None) -> str:
+    """
+    Retrieves a value from the config file.
+
+    Args:
+        section (str): The section in the config file.
+        key (str): The key to retrieve the value for.
+        fallback (str, optional): The fallback value if the key is not found. Defaults to None.
+
+    Returns:
+        str: The retrieved value or the fallback if not found.
+    """
+    try:
+        return config.get(section, key, fallback=fallback)
+    except (configparser.NoSectionError, configparser.NoOptionError) as e:
+        logger.error("Error retrieving config value [%s] %s: %s", section, key, str(e))
+        return fallback
 
 
 def get_env_var(env_name: str, default_value: str = None, strict: bool = False) -> str:

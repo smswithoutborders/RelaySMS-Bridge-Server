@@ -288,25 +288,36 @@ print(encoded)
 
 The Bridge supports the following reply content formats:
 
-1. **Email**: `sender:cc:bcc:subject:body`
+1. **Email**: `alias_address | sender | cc | bcc | subject | body`
    - Example: Email Bridge
 
+- **alias_address**: The unique email alias that maps to the recipient’s phone number.
 - **sender**: The email address of the sender, formatted as `Name <email>` if the sender's name is available.
 - **cc**: A comma-separated list of CC recipients, formatted as `Name <email>` if available.
 - **bcc**: A comma-separated list of BCC recipients, formatted as `Name <email>` if available.
 - **subject**: The subject line of the email.
-- **body**: The reply message body (parsed to exclude quoted text).
+- **body**: The reply message body.
+
+> [!NOTE]
+>
+> The `|` separators are only used in this documentation for readability. In actual content, the fields are concatenated **without any delimiters**.
 
 #### Example:
 
 ```
-John Doe <john.doe@example.com>:jane.doe@example.com:michael.smith@example.com:Meeting Update:Thank you for the update.
+123456789_bridge@relaysms.me | John Doe <john.doe@example.com> | jane.doe@example.com | michael.smith@example.com | Hello World | It works!.
 ```
 
 ### Payload Format
 
 - **Format**:
-  - 4 bytes: Ciphertext Length (integer)
+  - 1 byte: Length of `alias_address`
+  - 1 byte: Length of `sender`
+  - 1 byte: Length of `cc`
+  - 1 byte: Length of `bcc`
+  - 1 byte: Length of `subject`
+  - 2 bytes: Length of `body`
+  - 2 bytes: Length of `ciphertext`
   - 1 byte: Bridge Letter
   - Variable: Ciphertext
 
@@ -317,20 +328,28 @@ John Doe <john.doe@example.com>:jane.doe@example.com:michael.smith@example.com:M
 #### Visual Representation:
 
 ```
-+-----------------------------+------------------+----------------------------+
-| Length of Ciphertext        | Bridge Letter    | Ciphertext                 |
-| (4 bytes, integer)          | (1 byte)         | (variable size)            |
-+-----------------------------+------------------+----------------------------+
++-------------------------+--------------------------+----------------------+-----------------------+-------------------+--------------------+----------------------+---------------+-----------------+
+| Length of Alias Address | Length of Sender Address | Length of CC Address | Length of BCC Address | Length of Subject | Length of Body     | Length of Ciphertext | Bridge Letter | Ciphertext      |
+| (1 byte, integer)       | (1 byte, integer)        | (1 byte, integer)    | (1 byte, integer)     | (1 byte, integer) | (2 bytes, integer) | (2 bytes, integer)   | (1 byte)      | (variable size) |
++-------------------------+--------------------------+----------------------+-----------------------+-------------------+--------------------+----------------------+---------------+-----------------+
 ```
 
 ```python
 bridge_letter = b"e"
-ciphertext = b"John Doe <john.doe@example.com>:jane.doe@example.com::Meeting Update:Thank you for the update."
+ciphertext = (
+    alias_address + sender + cc_recipients + bcc_recipients + subject + message_body
+).encode()
 
 payload = (
-    struct.pack("<i", len(ciphertext)) +
-    bridge_letter +
-    ciphertext
+    bytes([len(alias_address)])
+    + bytes([len(sender)])
+    + bytes([len(cc_recipients)])
+    + bytes([len(bcc_recipients)])
+    + bytes([len(subject)])
+    + struct.pack("<H", len(message_body))
+    + struct.pack("<H", len(ciphertext))
+    + bridge_letter
+    + ciphertext
 )
 encoded = base64.b64encode(payload).decode("utf-8")
 print(encoded)
@@ -343,8 +362,9 @@ The SMS payload is used for transmitting the encrypted reply message to the Rela
 ### Payload Format
 
 ```
-RelaySMS Reply Please paste this entire message in your RelaySMS app \n
-<base64_encoded_payload>
+RelaySMS Reply Please paste this entire message in your RelaySMS app\n
+<base64_encoded_payload>\n
+<email_timestamp>
 ```
 
-Refer to [Reply Payload Format](#payload-format) for how to generate the `<base64_encoded_payload>`
+Refer to [Reply Payload Format](#payload-format) for how to generate the `<base64_encoded_payload>`.
