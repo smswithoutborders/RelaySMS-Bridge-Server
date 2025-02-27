@@ -26,6 +26,7 @@ from email_reply_parser import EmailReplyParser
 from vault_grpc_client import authenticate_bridge_entity, encrypt_payload
 from sms_outbound import send_with_twilio
 from utils import get_logger, get_env_var, get_config_value
+from translations import Localization
 
 IMAP_SERVER = get_env_var("BRIDGE_IMAP_SERVER", strict=True)
 IMAP_PORT = int(get_env_var("BRIDGE_IMAP_PORT", 993))
@@ -42,6 +43,9 @@ ALIAS_EMAIL_PATTERNS = re.compile(get_config_value("patterns", "alias_email"))
 SMS_REPLY_TEMPLATE = get_config_value("templates", "sms_reply")
 
 logger = get_logger("mail.inbound")
+
+loc = Localization()
+t = loc.translate
 
 sentry_sdk.init(
     dsn=get_env_var("SENTRY_DSN"),
@@ -192,7 +196,7 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
     bridge_letter = b"e"
     content_ciphertext = base64.b64decode(encrypted_payload.payload_ciphertext)
     sms_payload = SMS_REPLY_TEMPLATE.format(
-        reply_prompt="RelaySMS Reply Please paste this entire message in your RelaySMS app",
+        reply_prompt=t("sms_reply_prompt"),
         payload=base64.b64encode(
             bytes([len(alias_address)])
             + bytes([len(sender)])
