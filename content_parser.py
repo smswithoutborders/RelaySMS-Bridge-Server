@@ -143,6 +143,12 @@ def decode_v1(payload: bytes) -> tuple:
                 decoding=None,
                 use_chr=False,
             ),
+            FormatSpec(
+                key="language",
+                fmt=2,
+                decoding="utf-8",
+                use_chr=False,
+            ),
         ],
         1: [
             FormatSpec(key="len_ciphertext", fmt="<H", decoding=None, use_chr=False),
@@ -151,6 +157,12 @@ def decode_v1(payload: bytes) -> tuple:
                 key="content_ciphertext",
                 fmt=lambda d: d["len_ciphertext"],
                 decoding=None,
+                use_chr=False,
+            ),
+            FormatSpec(
+                key="language",
+                fmt=2,
+                decoding="utf-8",
                 use_chr=False,
             ),
         ],
