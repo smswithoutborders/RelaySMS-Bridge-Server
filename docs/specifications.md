@@ -206,6 +206,7 @@ print(encoded)
   - 1 byte: Server Key Identifier (integer)
   - Variable: Client Public Key
   - Variable: Ciphertext
+  - 2 byte: Language Code (ISO 639-1 format)
 
 > [!NOTE]
 >
@@ -214,10 +215,10 @@ print(encoded)
 #### Visual Representation:
 
 ```
-+----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+
-| Version Marker | Switch Value | Length of Client Public Key | Length of Ciphertext | Bridge Letter | Server Key Identifier | Client Public Key | Ciphertext      |
-| (1 byte)       | (1 byte)     | (1 byte)                    | (2 bytes)            | (1 byte)      | (1 byte)              | (variable size)   | (variable size) |
-+----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+
++----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+---------------+
+| Version Marker | Switch Value | Length of Client Public Key | Length of Ciphertext | Bridge Letter | Server Key Identifier | Client Public Key | Ciphertext      | Language Code |
+| (1 byte)       | (1 byte)     | (1 byte)                    | (2 bytes)            | (1 byte)      | (1 byte)              | (variable size)   | (variable size) | (2 bytes)     |
++----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+---------------+
 ```
 
 ```python
@@ -227,6 +228,7 @@ server_key_id = bytes([0])  # b'\x00'
 bridge_letter = b"e"
 client_public_key = b"client_pub_key"
 ciphertext = b"Hello world!"
+language = b"en"
 
 payload = (
     version +
@@ -236,7 +238,8 @@ payload = (
     bridge_letter +
     server_key_id +
     client_public_key +
-    ciphertext
+    ciphertext +
+    language
 )
 encoded = base64.b64encode(payload).decode("utf-8")
 print(encoded)
@@ -251,6 +254,7 @@ print(encoded)
   - 2 bytes: Ciphertext Length (integer)
   - 1 byte: Bridge Letter
   - Variable: Ciphertext
+  - 2 byte: Language Code (ISO 639-1 format)
 
 > [!NOTE]
 >
@@ -259,10 +263,10 @@ print(encoded)
 #### Visual Representation:
 
 ```
-+----------------+--------------+--------------------- +---------------+---------------- +
-| Version Marker | Switch Value | Length of Ciphertext | Bridge Letter | Ciphertext      |
-| (1 byte)       | (1 byte)     | (2 bytes)            | (1 byte)      | (variable size) |
-+----------------+--------------+--------------------- +---------------+---------------- +
++----------------+--------------+--------------------- +---------------+---------------- +---------------+
+| Version Marker | Switch Value | Length of Ciphertext | Bridge Letter | Ciphertext      | Language Code |
+| (1 byte)       | (1 byte)     | (2 bytes)            | (1 byte)      | (variable size) | (2 bytes)     |
++----------------+--------------+--------------------- +---------------+---------------- +---------------+
 ```
 
 ```python
@@ -270,13 +274,15 @@ version = bytes([10])  # b'\x0A'
 switch_value = bytes([1])  # b'\x01'
 bridge_letter = b"e"
 ciphertext = b"Hello world!"
+language = b"en"
 
 payload = (
     version +
     switch_value +
     struct.pack("<H", len(ciphertext)) +
     bridge_letter +
-    ciphertext
+    ciphertext +
+    language
 )
 encoded = base64.b64encode(payload).decode("utf-8")
 print(encoded)
