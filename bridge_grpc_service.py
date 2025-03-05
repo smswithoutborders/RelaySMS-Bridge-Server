@@ -117,6 +117,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
             ownership_proof_response=None,
             server_pub_key_identifier=None,
             server_pub_key_version=None,
+            language=None,
         ):
             parsed_number = phonenumbers.parse(request.metadata["From"])
             region_code = geocoder.region_code_for_number(parsed_number)
@@ -132,6 +133,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     else None
                 ),
                 server_pub_key_version=server_pub_key_version,
+                language=language,
             )
 
             if create_entity_error:
@@ -156,9 +158,9 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 None,
             )
 
-        def authenticate_entity():
+        def authenticate_entity(language=None):
             authentication_response, authentication_error = authenticate_bridge_entity(
-                phone_number=request.metadata["From"]
+                phone_number=request.metadata["From"], language=language
             )
 
             if authentication_error:
@@ -234,7 +236,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 create_response, create_error = create_entity(
                     client_publish_pub_key=base64.b64encode(public_key).decode("utf-8"),
                     server_pub_key_identifier=decoded_result.get("skid"),
-                    server_pub_key_version=decoded_result.get("version"),
+                    language=decoded_result.get("language"),
                 )
                 if create_error:
                     return create_error
@@ -261,7 +263,9 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 and "auth_code" not in decoded_result
                 and "public_key" not in decoded_result
             ):
-                _, authenticate_error = authenticate_entity()
+                _, authenticate_error = authenticate_entity(
+                    language=decoded_result.get("language")
+                )
                 if authenticate_error:
                     return authenticate_error
 
