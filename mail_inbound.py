@@ -26,6 +26,7 @@ from email_reply_parser import EmailReplyParser
 from vault_grpc_client import authenticate_bridge_entity, encrypt_payload
 from sms_outbound import send_with_twilio
 from utils import get_logger, get_env_var, get_config_value
+from translations import Localization
 
 IMAP_SERVER = get_env_var("BRIDGE_IMAP_SERVER", strict=True)
 IMAP_PORT = int(get_env_var("BRIDGE_IMAP_PORT", 993))
@@ -43,6 +44,9 @@ SMS_REPLY_TEMPLATE = get_config_value("templates", "sms_reply")
 
 logger = get_logger("mail.inbound")
 
+loc = Localization()
+t = loc.translate
+
 sentry_sdk.init(
     dsn=get_env_var("SENTRY_DSN"),
     server_name="Bridge",
@@ -58,26 +62,19 @@ sentry_sdk.set_tag("project", "Bridge")
 sentry_sdk.set_tag("service_name", "Bridge Service")
 
 
-def authenticate_phonenumber(phone_number: str) -> tuple[bool, str]:
+def authenticate_phonenumber(phone_number: str):
     """
     Authenticate a phone number using the bridge entity.
 
     Args:
         phone_number (str): The phone number to authenticate.
-
-    Returns:
-        tuple[bool, str]: Authentication success status and message.
     """
-    authentication_response, authentication_error = authenticate_bridge_entity(
-        phone_number=phone_number
-    )
+    response, error = authenticate_bridge_entity(phone_number=phone_number)
 
-    if authentication_error:
-        raise RuntimeError(
-            f"{authentication_error.details()} -- {authentication_error.code()}"
-        )
+    if error:
+        return (None, f"{error.details()} -- {error.code()}")
 
-    return authentication_response.success, authentication_response.message
+    return response, None
 
 
 def delete_email(mailbox: MailBox, email_uid: int) -> None:
@@ -162,14 +159,13 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
         delete_email(mailbox, email_uid)
         return
 
-    try:
-        authenticated, auth_message = authenticate_phonenumber(f"+{phone_number}")
-        if not authenticated:
-            logger.error("Authentication failed: %s", auth_message)
-            delete_email(mailbox, email_uid)
-            return
-    except RuntimeError as err:
-        logger.error("Authentication error: %s", err)
+    e_164_phonenumber = f"+{phone_number}"
+
+    authenticated, auth_error = authenticate_phonenumber(e_164_phonenumber)
+
+    if not authenticated or not authenticated.success:
+        logger.error("Authentication failed: %s", auth_error or authenticated.message)
+        delete_email(mailbox, email_uid)
         return
 
     reply_payload = (
@@ -178,7 +174,6 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
 
     logger.debug("Constructed Payload: %s", reply_payload)
 
-    e_164_phonenumber = f"+{phone_number}"
     encrypted_payload, encryption_error = encrypt_payload(
         phone_number=e_164_phonenumber, payload_plaintext=reply_payload
     )
@@ -191,8 +186,14 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
 
     bridge_letter = b"e"
     content_ciphertext = base64.b64decode(encrypted_payload.payload_ciphertext)
+
+    try:
+        loc.set_locale(authenticated.language)
+    except ValueError as e:
+        logger.error(e)
+
     sms_payload = SMS_REPLY_TEMPLATE.format(
-        reply_prompt="RelaySMS Reply Please paste this entire message in your RelaySMS app",
+        reply_prompt=t("sms_reply_prompt"),
         payload=base64.b64encode(
             bytes([len(alias_address)])
             + bytes([len(sender)])
