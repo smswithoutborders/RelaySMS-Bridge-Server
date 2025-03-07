@@ -206,7 +206,7 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
             + content_ciphertext
         ).decode("utf-8"),
         timestamp=email_timestamp,
-    )
+    ).replace("\\n", "\n")
 
     if MOCK_REPLY_SMS:
         is_sent = True
