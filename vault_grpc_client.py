@@ -109,6 +109,41 @@ def decrypt_payload(phone_number, payload_ciphertext, **kwargs):
 
 
 @grpc_call()
+def encrypt_payload(phone_number, payload_plaintext, **kwargs):
+    """
+    Sends a request to encrypt the provided plaintext payload.
+
+    Args:
+        phone_number (str): The phone number associated with the bridge entity.
+        payload_plaintext (str): The plaintext payload to be encrypted.
+        **kwargs:
+            - stub (object): The gRPC client stub for making the request.
+
+    Returns:
+        tuple: A tuple containing:
+            - response (object): The vault server's response.
+            - error (Exception or None): None if successful, otherwise the encountered exception.
+    """
+    stub = kwargs["stub"]
+
+    request = vault_pb2.EncryptPayloadRequest(
+        phone_number=phone_number,
+        payload_plaintext=payload_plaintext,
+    )
+
+    logger.debug(
+        "Initiating encryption request using phone_number='%s'.",
+        mask_sensitive_info(phone_number),
+    )
+
+    response = stub.EncryptPayload(request)
+
+    logger.info("Encryption successful using phone_number.")
+
+    return response, None
+
+
+@grpc_call()
 def create_bridge_entity(phone_number, **kwargs):
     """
     Sends a request to create a bridge entity.
@@ -120,27 +155,20 @@ def create_bridge_entity(phone_number, **kwargs):
             - country_code (str, optional): The country code for the phone number.
             - client_publish_pub_key (str, optional): The client's public key used for publishing.
             - ownership_proof_response (str, optional): Proof of ownership response.
+            - server_pub_key_identifier (str, optional): The server's public key identifier.
+            - server_pub_key_version (str, optional): The server's public key version.
+            - language (str, optional): The preferred language of the entity.
 
     Returns:
         tuple:
             - response (object): The vault server's response.
             - error (Exception or None): None if successful, otherwise the encountered exception.
     """
-    stub = kwargs["stub"]
-    country_code = kwargs.get("country_code")
-    client_publish_pub_key = kwargs.get("client_publish_pub_key")
-    ownership_proof_response = kwargs.get("ownership_proof_response")
-
-    request = vault_pb2.CreateBridgeEntityRequest(
-        phone_number=phone_number,
-        country_code=country_code,
-        client_publish_pub_key=client_publish_pub_key,
-        ownership_proof_response=ownership_proof_response,
-    )
+    stub = kwargs.pop("stub")
+    request = vault_pb2.CreateBridgeEntityRequest(phone_number=phone_number, **kwargs)
 
     logger.debug(
-        "Sending request to create bridge entity for phone_number: %s",
-        phone_number,
+        "Sending request to create bridge entity for phone_number: %s", phone_number
     )
     response = stub.CreateBridgeEntity(request)
     logger.info("Successfully created bridge entity.")
@@ -156,15 +184,18 @@ def authenticate_bridge_entity(phone_number, **kwargs):
         phone_number (str): The phone number associated with the bridge entity.
         **kwargs:
             - stub (object): The gRPC client stub for making requests.
+            - language (str, optional): The preferred language of the entity.
 
     Returns:
         tuple: A tuple containing:
             - response (object): The vault server's response.
             - error (Exception or None): None if successful, otherwise the encountered exception.
     """
-    stub = kwargs["stub"]
+    stub = kwargs.pop("stub")
 
-    request = vault_pb2.AuthenticateBridgeEntityRequest(phone_number=phone_number)
+    request = vault_pb2.AuthenticateBridgeEntityRequest(
+        phone_number=phone_number, **kwargs
+    )
 
     logger.debug(
         "Sending request to authenticate bridge entity for phone_number: %s",
