@@ -3,6 +3,8 @@ grpc-interceptor==0.15.4
 grpcio==1.70.0
 grpcio-tools==1.70.0
 imap-tools==1.9.0
+peewee==3.17.9
 phonenumbers==9.0.0
+PyMySQL==1.1.1
 sentry-sdk==2.20.0
 twilio==9.4.3

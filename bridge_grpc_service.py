@@ -25,6 +25,7 @@ from vault_grpc_client import (
 )
 
 from utils import get_logger, get_bridge_details_by_shortcode, import_module_dynamically
+from notification_dispatcher import dispatch_notifications
 
 logger = get_logger(__name__)
 
@@ -213,7 +214,58 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     message=decrypt_payload_response.message,
                     success=decrypt_payload_response.success,
                 )
-            return decrypt_payload_response.payload_plaintext, None
+            return decrypt_payload_response, None
+
+        def send_message(platform_name, content_parts):
+            if platform_name == "email_bridge":
+                email_bridge_module = import_module_dynamically(
+                    "email_bridge.simplelogin.client",
+                    os.path.join("bridges", "email_bridge", "simplelogin", "client.py"),
+                    os.path.join("bridges", "email_bridge"),
+                )
+
+                to_email, cc_email, bcc_email, email_subject, email_body = content_parts
+                email_send_success, email_send_message = email_bridge_module.send_email(
+                    phone_number=request.metadata["From"],
+                    to_email=to_email,
+                    subject=email_subject,
+                    body=email_body,
+                    cc_email=cc_email,
+                    bcc_email=bcc_email,
+                )
+                if not email_send_success:
+                    return None, self.handle_create_grpc_error_response(
+                        context,
+                        response,
+                        email_send_message,
+                        grpc.StatusCode.INVALID_ARGUMENT,
+                    )
+
+                return email_send_message, None
+
+            return None, self.handle_create_grpc_error_response(
+                context,
+                response,
+                f"Sorry, the platform '{platform_name}' is not supported.",
+                grpc.StatusCode.UNIMPLEMENTED,
+            )
+
+        def handle_publication_notifications(
+            platform_name, status="failed", country_code=None
+        ):
+            notifications = [
+                {
+                    "notification_type": "event",
+                    "target": "publication",
+                    "details": {
+                        "platform_name": platform_name,
+                        "source": "bridges",
+                        "status": status,
+                        "country_code": country_code,
+                    },
+                },
+            ]
+            dispatch_notifications(notifications)
 
         try:
             invalid_fields_response = self.handle_request_field_validation(
@@ -224,7 +276,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
 
             decoded_result, decode_error = decode_content(content=request.content)
             if decode_error:
-                return None, self.handle_create_grpc_error_response(
+                return self.handle_create_grpc_error_response(
                     context,
                     response,
                     decode_error,
@@ -269,7 +321,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 if authenticate_error:
                     return authenticate_error
 
-            decrypted_content, decrypt_error = decrypt_message(
+            decrypt_response, decrypt_error = decrypt_message(
                 phone_number=request.metadata["From"],
                 encrypted_content=decoded_result["content_ciphertext"],
             )
@@ -277,7 +329,8 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 return decrypt_error
 
             extracted_content, extraction_error = extract_content(
-                bridge_name=bridge_info["name"], content=decrypted_content
+                bridge_name=bridge_info["name"],
+                content=decrypt_response.payload_plaintext,
             )
             if extraction_error:
                 return self.handle_create_grpc_error_response(
@@ -287,38 +340,32 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     grpc.StatusCode.INVALID_ARGUMENT,
                 )
 
-            if bridge_info["name"] == "email_bridge":
-                email_bridge_module = import_module_dynamically(
-                    "email_bridge.simplelogin.client",
-                    os.path.join("bridges", "email_bridge", "simplelogin", "client.py"),
-                    os.path.join("bridges", "email_bridge"),
-                )
+            _, message_error = send_message(bridge_info["name"], extracted_content)
 
-                to_email, cc_email, bcc_email, email_subject, email_body = (
-                    extracted_content
+            if message_error:
+                handle_publication_notifications(
+                    bridge_info["name"],
+                    status="failed",
+                    country_code=decrypt_response.country_code,
                 )
-                email_send_success, email_send_message = email_bridge_module.send_email(
-                    phone_number=request.metadata["From"],
-                    to_email=to_email,
-                    subject=email_subject,
-                    body=email_body,
-                    cc_email=cc_email,
-                    bcc_email=bcc_email,
-                )
-                if not email_send_success:
-                    return self.handle_create_grpc_error_response(
-                        context,
-                        response,
-                        email_send_message,
-                        grpc.StatusCode.INVALID_ARGUMENT,
-                    )
+                return message_error
 
+            handle_publication_notifications(
+                bridge_info["name"],
+                status="published",
+                country_code=decrypt_response.country_code,
+            )
             return response(
                 success=True,
                 message=f"Successfully published {bridge_info['name']} message",
             )
 
         except Exception as exc:
+            handle_publication_notifications(
+                bridge_info["name"],
+                status="failed",
+                country_code=decrypt_response.country_code,
+            )
             return self.handle_create_grpc_error_response(
                 context,
                 response,
