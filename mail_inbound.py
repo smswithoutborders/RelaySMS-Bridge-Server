@@ -39,7 +39,19 @@ MOCK_REPLY_SMS = get_env_var("MOCK_REPLY_SMS")
 MOCK_REPLY_SMS = (
     MOCK_REPLY_SMS.lower() == "true" if MOCK_REPLY_SMS is not None else False
 )
-ALIAS_EMAIL_PATTERNS = re.compile(get_config_value("patterns", "alias_email"))
+
+ALIAS_PHONENUMBER_PREFIX = get_env_var("ALIAS_PHONE_NUMBER_PREFIX", "")
+ALIAS_PHONENUMBER_SUFFIX = get_env_var("ALIAS_PHONE_NUMBER_SUFFIX", "")
+SIMPLELOGIN_PRIMARY_DOMAIN = get_env_var("SL_PRIMARY_DOMAIN", "relaysms.me")
+
+ALIAS_EMAIL_PATTERNS = re.compile(
+    get_config_value("patterns", "alias_email").format(
+        suffix=re.escape(ALIAS_PHONENUMBER_SUFFIX),
+        prefix=re.escape(ALIAS_PHONENUMBER_PREFIX),
+        domain=re.escape(SIMPLELOGIN_PRIMARY_DOMAIN),
+    )
+)
+
 SMS_REPLY_TEMPLATE = get_config_value("templates", "sms_reply")
 
 logger = get_logger("mail.inbound")
