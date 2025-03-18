@@ -152,7 +152,7 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
     )
     cc_recipients = ",".join(format_recipients(email.cc_values))
     bcc_recipients = ",".join(format_recipients(email.bcc_values))
-    email_timestamp = email.date.strftime("%Y-%m-%d %H:%M:%S (%Z)")
+    email_timestamp = email.date.timestamp()
 
     phone_number = None
     alias_address = None
