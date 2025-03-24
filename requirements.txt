@@ -7,4 +7,4 @@ peewee==3.17.9
 phonenumbers==9.0.0
 PyMySQL==1.1.1
 sentry-sdk==2.20.0
-twilio==9.4.3
+twilio==9.5.1
