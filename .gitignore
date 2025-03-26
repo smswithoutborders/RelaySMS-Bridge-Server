@@ -171,3 +171,6 @@ bridges
 
 # Except for bridge.proto
 !bridge.proto
+
+# VSCode
+.vscode
