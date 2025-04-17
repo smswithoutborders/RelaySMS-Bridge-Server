@@ -192,6 +192,7 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
 
     if encryption_error:
         logger.error("Encryption failed: %s", encryption_error)
+        delete_email(mailbox, email_uid)
         return
 
     logger.debug("Encrypted Payload: %s", encrypted_payload.payload_ciphertext)
