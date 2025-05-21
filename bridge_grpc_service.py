@@ -330,7 +330,9 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
 
             extracted_content, extraction_error = extract_content(
                 bridge_name=bridge_info["name"],
-                content=decrypt_response.payload_plaintext,
+                content=base64.b64decode(decrypt_response.payload_plaintext).decode(
+                    "utf-8"
+                ),
             )
             if extraction_error:
                 return self.handle_create_grpc_error_response(
