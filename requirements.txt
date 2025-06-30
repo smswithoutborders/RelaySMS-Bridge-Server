@@ -1,10 +1,10 @@
 email-reply-parser==0.5.12
 grpc-interceptor==0.15.4
-grpcio==1.72.1
-grpcio-tools==1.72.1
-imap-tools==1.10.0
+grpcio==1.73.1
+grpcio-tools==1.73.1
+imap-tools==1.11.0
 peewee==3.18.1
-phonenumbers==9.0.7
+phonenumbers==9.0.8
 PyMySQL==1.1.1
-sentry-sdk==2.29.1
-twilio==9.6.2
+sentry-sdk==2.32.0
+twilio==9.6.3
