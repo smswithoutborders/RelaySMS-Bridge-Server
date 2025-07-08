@@ -2,9 +2,12 @@ FROM python:3.13.5-slim
 
 WORKDIR /bridge_server
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt \
+    --mount=type=cache,sharing=locked,target=/var/lib/apt \
+    apt-get update && apt-get install -y --no-install-recommends \    
     build-essential \
     git \
+    vim \
     curl \
     supervisor \
     pkg-config && \
@@ -14,14 +17,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-RUN pip install --disable-pip-version-check --quiet --no-cache-dir setuptools && \
+RUN --mount=type=cache,sharing=locked,target=/root/.cache/pip \
     pip install --disable-pip-version-check --quiet --no-cache-dir -r requirements.txt
 
 COPY . .
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN make setup && \
-    find bridges/ -type f -name "requirements.txt" -exec pip install --quiet --no-cache-dir -r {} \;
+RUN --mount=type=cache,sharing=locked,target=/root/.cache/pip \
+    make setup && \
+    find bridges/ -type f -name "requirements.txt" -exec \
+    pip install --disable-pip-version-check --quiet --no-cache-dir -r {} \;
 
 ENV MODE=production
 
