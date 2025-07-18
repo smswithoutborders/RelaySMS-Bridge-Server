@@ -225,7 +225,22 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
         is_sent = True
         sentry_sdk.capture_message(sms_payload, level="info")
     else:
-        is_sent = send_with_twilio(e_164_phonenumber, message=sms_payload)
+        is_sent = False
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            logger.info("Attempting to send SMS (attempt %d/%d)", attempt, max_retries)
+            is_sent = send_with_twilio(e_164_phonenumber, message=sms_payload)
+
+            if is_sent:
+                logger.info("SMS sent successfully on attempt %d", attempt)
+                break
+
+            logger.warning("SMS sending failed on attempt %d", attempt)
+            if attempt < max_retries:
+                logger.info("Retrying SMS sending...")
+                time.sleep(2)
+            else:
+                logger.error("All %d SMS sending attempts failed", max_retries)
 
     if is_sent:
         delete_email(mailbox, email_uid)
@@ -234,6 +249,15 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
         publish_alert = f"Successfully processed and sent reply at {timestamp}."
         sentry_sdk.capture_message(publish_alert, level="info")
         logger.info(publish_alert)
+    else:
+        delete_email(mailbox, email_uid)
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        failure_alert = (
+            f"Failed to send SMS after {max_retries} attempts. "
+            f"Email deleted at {timestamp}."
+        )
+        sentry_sdk.capture_message(failure_alert, level="warning")
+        logger.warning(failure_alert)
 
 
 def main() -> None:
