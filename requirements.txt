@@ -4,7 +4,7 @@ grpcio==1.74.0
 grpcio-tools==1.74.0
 imap-tools==1.11.0
 peewee==3.18.2
-phonenumbers==9.0.10
+phonenumbers==9.0.11
 PyMySQL==1.1.1
-sentry-sdk==2.33.2
+sentry-sdk==2.34.1
 twilio==9.7.0
