@@ -226,7 +226,7 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
         timestamp=email_timestamp,
     ).replace("\\n", "\n")
 
-    region_code = get_phonenumber_region_code(phone_number)
+    region_code = get_phonenumber_region_code(e_164_phonenumber)
 
     if MOCK_REPLY_SMS:
         is_sent = True
