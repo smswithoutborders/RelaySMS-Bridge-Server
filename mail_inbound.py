@@ -24,7 +24,12 @@ from imap_tools import (
 )
 from email_reply_parser import EmailReplyParser
 from vault_grpc_client import authenticate_bridge_entity, encrypt_payload
-from sms_outbound import send_with_twilio
+from sms_outbound import (
+    QUEUEDROID_SUPPORTED_REGION_CODES,
+    send_with_queuedroid,
+    send_with_twilio,
+    get_phonenumber_region_code,
+)
 from utils import get_logger, get_env_var, get_config_value
 from translations import Localization
 
@@ -221,9 +226,14 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
         timestamp=email_timestamp,
     ).replace("\\n", "\n")
 
+    region_code = get_phonenumber_region_code(phone_number)
+
     if MOCK_REPLY_SMS:
         is_sent = True
         sentry_sdk.capture_message(sms_payload, level="info")
+    elif region_code in QUEUEDROID_SUPPORTED_REGION_CODES:
+        is_sent = False
+        is_sent = send_with_queuedroid(e_164_phonenumber, message=sms_payload)
     else:
         is_sent = False
         max_retries = 3
