@@ -5,7 +5,6 @@
 - [Content Format](#content-format)
   - [Content Format V0](#content-format-v0)
   - [Content Format V1](#content-format-v1)
-  - [Content Format V2](#content-format-v2)
 - [Payload Format](#supported-payload-versions)
   - [Payload Format V0](#payload-format-v0)
   - [Payload Format V1](#payload-format-v1)
