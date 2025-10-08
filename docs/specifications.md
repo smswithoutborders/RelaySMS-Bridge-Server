@@ -4,11 +4,13 @@
 
 - [Content Format](#content-format)
   - [Content Format V0](#content-format-v0)
-  - [Content Format V1](#content-format-v1)
+  - [Content Format V3](#content-format-v3)
+  - [Content Format V4](#content-format-v4)
 - [Payload Format](#supported-payload-versions)
   - [Payload Format V0](#payload-format-v0)
   - [Payload Format V1](#payload-format-v1)
-  - [Payload Format V2](#payload-format-v2)
+  - [Payload Format V3](#payload-format-v3)
+  - [Payload Format V4](#payload-format-v4)
 - [Reply Data Format](#reply-data-format)
 - [SMS Payload Format](#sms-payload-format)
 
@@ -23,7 +25,7 @@
 1. **Email**: `to:cc:bcc:subject:body`
    - Example: Email Bridge
 
-### Content Format V1
+### Content Format V3
 
 > [!NOTE]
 >
@@ -37,34 +39,54 @@
 
 The bitmap is a single byte where each bit represents the presence of a specific field:
 
-- **Bit 0 (0x01)**: `from` field
-- **Bit 1 (0x02)**: `to` field
-- **Bit 2 (0x04)**: `cc` field
-- **Bit 3 (0x08)**: `bcc` field
-- **Bit 4 (0x10)**: `subject` field
-- **Bit 5 (0x20)**: `body` field
-- **Bit 6 (0x40)**: Text content present
-- **Bit 7 (0x80)**: Image content present
+- **Bit 0 (0b00000001)**: `cc` field
+- **Bit 1 (0b00000010)**: `bcc` field
 
 1. **Email format**: Binary-encoded fields with the following structure:
 
-   - **1 byte**: Field presence bitmap
-   - **1 byte**: Length of `from` field (if bit 0 is set and bit 6 is set)
-   - **2 bytes**: Length of `to` field (if bit 1 is set and bit 6 is set)
-   - **2 bytes**: Length of `cc` field (if bit 2 is set and bit 6 is set)
-   - **2 bytes**: Length of `bcc` field (if bit 3 is set and bit 6 is set)
-   - **1 byte**: Length of `subject` field (if bit 4 is set and bit 6 is set)
-   - **2 bytes**: Length of `body` field (if bit 5 is set and bit 6 is set)
-   - **2 bytes**: `Image Session ID` (if bit 7 is set)
-   - **1 byte**: `Image Segment info` (if bit 7 is set)
-   - **2 bytes**: Length of `Image` (if bit 7 is set)
-   - **Variable**: Value of `from` field (if present)
-   - **Variable**: Value of `to` field (if present)
-   - **Variable**: Value of `cc` field (if present)
-   - **Variable**: Value of `bcc` field (if present)
-   - **Variable**: Value of `subject` field (if present)
-   - **Variable**: Value of `body` field (if present)
-   - **Variable**: Value of `Image` (if present)
+   - **1 byte**: Field presence bitmap.
+   - **2 bytes**: Length of `to` field.
+   - **2 bytes**: Length of `cc` field (if bit 0 is set).
+   - **2 bytes**: Length of `bcc` field (if bit 1 is set).
+   - **1 byte**: Length of `subject` field.
+   - **2 bytes**: Length of `body` field.
+   - **Variable**: Value of `to` field.
+   - **Variable**: Value of `cc` field.
+   - **Variable**: Value of `bcc` field.
+   - **Variable**: Value of `subject` field.
+   - **Variable**: Value of `body` field.
+
+### Content Format V4
+
+> [!NOTE]
+>
+> For detailed instructions on encrypting the content format using the Double Ratchet algorithm, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
+
+> [!NOTE]
+>
+> **All 2-byte length fields are encoded as unsigned little-endian.**
+
+#### Field Bitmap Definition
+
+The bitmap is a single byte where each bit represents the presence of a specific field:
+
+- **Bit 0 (0b00000001)**: `cc` field
+- **Bit 1 (0b00000010)**: `bcc` field
+
+1. **Email format**: Binary-encoded fields with the following structure:
+
+   - **Variable**: Value of `image` field.
+   - **1 byte**: Field presence bitmap.
+   - **2 bytes**: Length of `to` field.
+   - **2 bytes**: Length of `cc` field (if bit 0 is set).
+   - **2 bytes**: Length of `bcc` field (if bit 1 is set).
+   - **1 byte**: Length of `subject` field.
+   - **2 bytes**: Length of `body` field.
+   - **Variable**: Value of `to` field.
+   - **Variable**: Value of `cc` field.
+   - **Variable**: Value of `bcc` field.
+   - **Variable**: Value of `subject` field.
+   - **Variable**: Value of `body` field.
 
 ## Supported Payload Versions
 
@@ -72,11 +94,12 @@ The bitmap is a single byte where each bit represents the presence of a specific
 | ------------------------ | --------------------- | ----------------- | ----------------------------------------------------------- |
 | [v0](#payload-format-v0) | `None`                | `None`            | No explicit version marker, backward-compatible formats.    |
 | [v1](#payload-format-v1) | `0x0A`                | `10`              | Includes a version marker as the first byte of the payload. |
-| [v2](#payload-format-v2) | `0x02`                | `2`               | Uses bitmap field mapping for efficient field indication.   |
+| [v3](#payload-format-v3) | `0x03`                | `3`               | Uses bitmap field mapping for efficient field indication.   |
+| [v4](#payload-format-v4) | `0x04`                | `4`               | Supports Image content.                                     |
 
 ## Payload Format V0
 
-> [!WARN]
+> [!WARNING]
 >
 > This payload format is deprecated.
 
@@ -339,14 +362,14 @@ encoded = base64.b64encode(payload).decode("utf-8")
 print(encoded)
 ```
 
-## Payload Format V2
+## Payload Format V3
 
 > [!NOTE]
 >
 > ### Versioning Scheme
 >
-> - **Version Marker**: The first byte of the payload is `0x02` (decimal `2`) to indicate **Version 2 (V2)** format.
-> - **Content Format**: Uses [Content Format V2](#content-format-v2).
+> - **Version Marker**: The first byte of the payload is `0x03` (decimal `3`) to indicate **Version 3 (V3)** format.
+> - **Content Format**: Uses [Content Format V3](#content-format-v3).
 
 | **Payload Type**                                        | **Switch** | **Description**                 |
 | ------------------------------------------------------- | ---------- | ------------------------------- |
@@ -357,14 +380,14 @@ print(encoded)
 
 - **Switch**: `0`
 - **Format**:
-  - 1 byte: Version Marker (`0x02`)
+  - 1 byte: Version Marker (`0x03`)
   - 1 byte: Switch Value
   - 1 byte: Client Public Key Length (integer)
   - 2 bytes: Ciphertext Length (integer)
   - 1 byte: Bridge Letter
   - 1 byte: Server Key Identifier (integer)
   - Variable: Client Public Key
-  - Variable: Ciphertext (encrypted [Content Format V1](#content-format-v1)).
+  - Variable: Ciphertext (encrypted [Content Format V3](#content-format-v3)).
   - 2 byte: Language Code (ISO 639-1 format)
 
 > [!NOTE]
@@ -381,7 +404,7 @@ print(encoded)
 ```
 
 ```python
-version = b'\x02'
+version = b'\x03'
 switch_value = b'\x00'
 server_key_id = b'\x00'
 bridge_letter = b"e"
@@ -408,11 +431,11 @@ print(encoded)
 
 - **Switch**: `1`
 - **Format**:
-  - 1 byte: Version Marker (`0x02`)
+  - 1 byte: Version Marker (`0x03`)
   - 1 byte: Switch Value
   - 2 bytes: Ciphertext Length (integer)
   - 1 byte: Bridge Letter
-  - Variable: Ciphertext (encrypted [Content Format V1](#content-format-v1)).
+  - Variable: Ciphertext (encrypted [Content Format V3](#content-format-v3)).
   - 2 byte: Language Code (ISO 639-1 format)
 
 > [!NOTE]
@@ -429,7 +452,115 @@ print(encoded)
 ```
 
 ```python
-version = b'\x02'
+version = b'\x03'
+switch_value = b'\x01'
+bridge_letter = b"e"
+ciphertext = b"..."
+language = b"en"
+
+payload = (
+    version +
+    switch_value +
+    struct.pack("<H", len(ciphertext)) +
+    bridge_letter +
+    ciphertext +
+    language
+)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
+```
+
+## Payload Format V4
+
+> [!NOTE]
+>
+> ### Versioning Scheme
+>
+> - **Version Marker**: The first byte of the payload is `0x04` (decimal `4`) to indicate **Version 4 (V4)** format.
+> - **Content Format**: Uses [Content Format V4](#content-format-v4).
+
+| **Payload Type**                                        | **Switch** | **Description**                 |
+| ------------------------------------------------------- | ---------- | ------------------------------- |
+| [Auth Request and Payload](#auth-request-and-payload-1) | `0`        | Contains a client public key    |
+| [Payload Only](#payload-only-2)                         | `1`        | Contains encrypted content only |
+
+### Auth Request and Payload
+
+- **Switch**: `0`
+- **Format**:
+  - 1 byte: Version Marker (`0x04`)
+  - 1 byte: Switch Value
+  - 1 byte: Client Public Key Length (integer)
+  - 2 bytes: Ciphertext Length (integer)
+  - 1 byte: Bridge Letter
+  - 1 byte: Server Key Identifier (integer)
+  - Variable: Client Public Key
+  - Variable: Ciphertext (encrypted [Content Format V4](#content-format-v4)).
+  - 2 byte: Language Code (ISO 639-1 format)
+
+> [!NOTE]
+>
+> For detailed instructions on using the Double Ratchet algorithm to create ciphertext, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
+
+#### Visual Representation:
+
+```
++----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+---------------+
+| Version Marker | Switch Value | Length of Client Public Key | Length of Ciphertext | Bridge Letter | Server Key Identifier | Client Public Key | Ciphertext      | Language Code |
+| (1 byte)       | (1 byte)     | (1 byte)                    | (2 bytes)            | (1 byte)      | (1 byte)              | (variable size)   | (variable size) | (2 bytes)     |
++----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+---------------+
+```
+
+```python
+version = b'\x04'
+switch_value = b'\x00'
+server_key_id = b'\x00'
+bridge_letter = b"e"
+client_public_key = b"client_pub_key"
+ciphertext = b"..."
+language = b"en"
+
+payload = (
+    version +
+    switch_value +
+    bytes([len(client_public_key)]) +
+    struct.pack("<H", len(ciphertext)) +
+    bridge_letter +
+    server_key_id +
+    client_public_key +
+    ciphertext +
+    language
+)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
+```
+
+### Payload Only
+
+- **Switch**: `1`
+- **Format**:
+  - 1 byte: Version Marker (`0x04`)
+  - 1 byte: Switch Value
+  - 2 bytes: Ciphertext Length (integer)
+  - 1 byte: Bridge Letter
+  - Variable: Ciphertext (encrypted [Content Format V4](#content-format-v4)).
+  - 2 byte: Language Code (ISO 639-1 format)
+
+> [!NOTE]
+>
+> For detailed instructions on using the Double Ratchet algorithm to create ciphertext, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
+
+#### Visual Representation:
+
+```
++----------------+--------------+----------------------+---------------+-----------------+---------------+
+| Version Marker | Switch Value | Length of Ciphertext | Bridge Letter | Ciphertext      | Language Code |
+| (1 byte)       | (1 byte)     | (2 bytes)            | (1 byte)      | (variable size) | (2 bytes)     |
++----------------+--------------+----------------------+---------------+-----------------+---------------+
+```
+
+```python
+version = b'\x04'
 switch_value = b'\x01'
 bridge_letter = b"e"
 ciphertext = b"..."
