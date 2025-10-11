@@ -12,6 +12,7 @@ from content_parser import (
     decode_v1,
     decode_content,
     extract_content,
+    extract_content_v2,
     extract_content_v3,
 )
 
@@ -170,6 +171,43 @@ def test_decode_content_invalid(content):
 )
 def test_extract_content(bridge_name, content, expected):
     result, error = extract_content(bridge_name, content)
+    if expected is None:
+        assert result is None
+        assert isinstance(error, str)
+    else:
+        assert result == expected
+        assert error is None
+
+
+@pytest.mark.parametrize(
+    "bridge_name, content, expected",
+    [
+        (
+            "email_bridge",
+            struct.pack("<HHHBH", 2, 2, 3, 7, 4) + b"toccbccsubjectbody",
+            {
+                "to": "to",
+                "cc": "cc",
+                "bcc": "bcc",
+                "subject": "subject",
+                "body": "body",
+            },
+        ),
+        (
+            "email_bridge",
+            struct.pack("<HHHBH", 2, 0, 0, 7, 4) + b"tosubjectbody",
+            {
+                "to": "to",
+                "cc": "",
+                "bcc": "",
+                "subject": "subject",
+                "body": "body",
+            },
+        ),
+    ],
+)
+def test_extract_content_v2(bridge_name, content, expected):
+    result, error = extract_content_v2(bridge_name, content)
     if expected is None:
         assert result is None
         assert isinstance(error, str)

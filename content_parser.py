@@ -173,7 +173,7 @@ def decode_content(content: str) -> tuple:
     try:
         payload = base64.b64decode(content)
         version_marker = payload[0]
-        if version_marker not in [3, 10]:
+        if version_marker not in [2, 3, 10]:
             return None, f"Unsupported version marker: {version_marker}"
         return decode_v1(payload)
     except Exception as e:
@@ -196,6 +196,45 @@ def extract_content(bridge_name: str, content: str) -> tuple:
             return None, "Email content must have exactly 5 parts."
         return tuple(parts), None
     return None, "Invalid bridge name."
+
+
+def extract_content_v2(bridge_name: str, content: bytes) -> tuple:
+    """Extracts components based on the specified bridge name for v2.
+
+    Args:
+        bridge_name (str): The bridge identifier.
+        content (bytes): The binary content to extract from.
+
+    Returns:
+        tuple: A tuple of extracted values or an error message.
+    """
+    if bridge_name != "email_bridge":
+        return None, "Invalid bridge name."
+
+    format_spec = [
+        FormatSpec(key="length_to", fmt="<H", decoding=None),
+        FormatSpec(key="length_cc", fmt="<H", decoding=None),
+        FormatSpec(key="length_bcc", fmt="<H", decoding=None),
+        FormatSpec(key="length_subject", fmt="<B", decoding=None),
+        FormatSpec(key="length_body", fmt="<H", decoding=None),
+        FormatSpec(key="to", fmt=lambda d: d["length_to"], decoding="utf-8"),
+        FormatSpec(key="cc", fmt=lambda d: d["length_cc"], decoding="utf-8"),
+        FormatSpec(key="bcc", fmt=lambda d: d["length_bcc"], decoding="utf-8"),
+        FormatSpec(key="subject", fmt=lambda d: d["length_subject"], decoding="utf-8"),
+        FormatSpec(key="body", fmt=lambda d: d["length_body"], decoding="utf-8"),
+    ]
+
+    try:
+        result = parse_payload(content, format_spec)
+        return {
+            "to": result.get("to", ""),
+            "cc": result.get("cc", ""),
+            "bcc": result.get("bcc", ""),
+            "subject": result.get("subject", ""),
+            "body": result.get("body", ""),
+        }, None
+    except Exception as e:
+        return None, e
 
 
 def extract_content_v3(bridge_name: str, content: bytes) -> tuple:

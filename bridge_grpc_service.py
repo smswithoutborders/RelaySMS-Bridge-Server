@@ -17,7 +17,7 @@ from phonenumbers import geocoder
 import bridge_pb2
 import bridge_pb2_grpc
 
-from content_parser import decode_content, extract_content
+from content_parser import decode_content, extract_content, extract_content_v2
 from vault_grpc_client import (
     create_bridge_entity,
     decrypt_payload,
@@ -216,7 +216,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 )
             return decrypt_payload_response, None
 
-        def send_message(platform_name, content_parts):
+        def send_message(platform_name, content_parts, payload_version):
             if platform_name == "email_bridge":
                 email_bridge_module = import_module_dynamically(
                     "email_bridge.simplelogin.client",
@@ -224,14 +224,31 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     os.path.join("bridges", "email_bridge"),
                 )
 
-                to_email, cc_email, bcc_email, email_subject, email_body = content_parts
+                content_map = {
+                    "v0": lambda c: {
+                        "to": c[0],
+                        "cc": c[1],
+                        "bcc": c[2],
+                        "subject": c[3],
+                        "body": c[4],
+                    },
+                    "v1": lambda c: {
+                        "to": c[0],
+                        "cc": c[1],
+                        "bcc": c[2],
+                        "subject": c[3],
+                        "body": c[4],
+                    },
+                    "v2": lambda c: c,
+                }
+                content = content_map[payload_version](content_parts)
                 email_send_success, email_send_message = email_bridge_module.send_email(
                     phone_number=request.metadata["From"],
-                    to_email=to_email,
-                    subject=email_subject,
-                    body=email_body,
-                    cc_email=cc_email,
-                    bcc_email=bcc_email,
+                    to_email=content["to"],
+                    cc_email=content["cc"],
+                    bcc_email=content["bcc"],
+                    subject=content["subject"],
+                    body=content["body"],
                 )
                 if not email_send_success:
                     return None, self.handle_create_grpc_error_response(
@@ -328,12 +345,24 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
             if decrypt_error:
                 return decrypt_error
 
-            extracted_content, extraction_error = extract_content(
-                bridge_name=bridge_info["name"],
-                content=base64.b64decode(decrypt_response.payload_plaintext).decode(
-                    "utf-8"
+            payload_version = decoded_result.get("version", "v0")
+            content_extraction_map = {
+                "v0": lambda d: extract_content(
+                    bridge_name=bridge_info["name"],
+                    content=base64.b64decode(d).decode("utf-8"),
                 ),
-            )
+                "v1": lambda d: extract_content(
+                    bridge_name=bridge_info["name"],
+                    content=base64.b64decode(d).decode("utf-8"),
+                ),
+                "v2": lambda d: extract_content_v2(
+                    bridge_name=bridge_info["name"], content=base64.b64decode(d)
+                ),
+            }
+
+            extracted_content, extraction_error = content_extraction_map[
+                payload_version
+            ](decrypt_response.payload_plaintext)
             if extraction_error:
                 return self.handle_create_grpc_error_response(
                     context,
@@ -342,7 +371,9 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     grpc.StatusCode.INVALID_ARGUMENT,
                 )
 
-            _, message_error = send_message(bridge_info["name"], extracted_content)
+            _, message_error = send_message(
+                bridge_info["name"], extracted_content, payload_version
+            )
 
             if message_error:
                 handle_publication_notifications(

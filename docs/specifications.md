@@ -4,11 +4,13 @@
 
 - [Content Format](#content-format)
   - [Content Format V0](#content-format-v0)
+  - [Content Format V2](#content-format-v2)
   - [Content Format V3](#content-format-v3)
   - [Content Format V4](#content-format-v4)
 - [Payload Format](#supported-payload-versions)
   - [Payload Format V0](#payload-format-v0)
   - [Payload Format V1](#payload-format-v1)
+  - [Payload Format V2](#payload-format-v2)
   - [Payload Format V3](#payload-format-v3)
   - [Payload Format V4](#payload-format-v4)
 - [Reply Data Format](#reply-data-format)
@@ -24,6 +26,29 @@
 
 1. **Email**: `to:cc:bcc:subject:body`
    - Example: Email Bridge
+
+### Content Format V2
+
+> [!NOTE]
+>
+> For detailed instructions on encrypting the content format using the Double Ratchet algorithm, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
+
+> [!NOTE]
+>
+> **All 2-byte length fields are encoded as unsigned little-endian.**
+
+1. **Email format**: Binary-encoded fields with the following structure:
+
+   - **2 bytes**: Length of `to` field.
+   - **2 bytes**: Length of `cc` field.
+   - **2 bytes**: Length of `bcc` field.
+   - **1 byte**: Length of `subject` field.
+   - **2 bytes**: Length of `body` field.
+   - **Variable**: Value of `to` field.
+   - **Variable**: Value of `cc` field.
+   - **Variable**: Value of `bcc` field.
+   - **Variable**: Value of `subject` field.
+   - **Variable**: Value of `body` field.
 
 ### Content Format V3
 
@@ -345,6 +370,114 @@ print(encoded)
 
 ```python
 version = b'\x0A'
+switch_value = b'\x01'
+bridge_letter = b"e"
+ciphertext = b"..."
+language = b"en"
+
+payload = (
+    version +
+    switch_value +
+    struct.pack("<H", len(ciphertext)) +
+    bridge_letter +
+    ciphertext +
+    language
+)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
+```
+
+## Payload Format V2
+
+> [!NOTE]
+>
+> ### Versioning Scheme
+>
+> - **Version Marker**: The first byte of the payload is `0x02` (decimal `2`) to indicate **Version 2 (V2)** format.
+> - **Content Format**: Uses [Content Format V2](#content-format-v2).
+
+| **Payload Type**                                        | **Switch** | **Description**                 |
+| ------------------------------------------------------- | ---------- | ------------------------------- |
+| [Auth Request and Payload](#auth-request-and-payload-1) | `0`        | Contains a client public key    |
+| [Payload Only](#payload-only-2)                         | `1`        | Contains encrypted content only |
+
+### Auth Request and Payload
+
+- **Switch**: `0`
+- **Format**:
+  - 1 byte: Version Marker (`0x02`)
+  - 1 byte: Switch Value
+  - 1 byte: Client Public Key Length (integer)
+  - 2 bytes: Ciphertext Length (integer)
+  - 1 byte: Bridge Letter
+  - 1 byte: Server Key Identifier (integer)
+  - Variable: Client Public Key
+  - Variable: Ciphertext (encrypted [Content Format V2](#content-format-v2)).
+  - 2 byte: Language Code (ISO 639-1 format)
+
+> [!NOTE]
+>
+> For detailed instructions on using the Double Ratchet algorithm to create ciphertext, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
+
+#### Visual Representation:
+
+```
++----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+---------------+
+| Version Marker | Switch Value | Length of Client Public Key | Length of Ciphertext | Bridge Letter | Server Key Identifier | Client Public Key | Ciphertext      | Language Code |
+| (1 byte)       | (1 byte)     | (1 byte)                    | (2 bytes)            | (1 byte)      | (1 byte)              | (variable size)   | (variable size) | (2 bytes)     |
++----------------+--------------+-----------------------------+----------------------+---------------+-----------------------+-------------------+-----------------+---------------+
+```
+
+```python
+version = b'\x02'
+switch_value = b'\x00'
+server_key_id = b'\x00'
+bridge_letter = b"e"
+client_public_key = b"client_pub_key"
+ciphertext = b"..."
+language = b"en"
+
+payload = (
+    version +
+    switch_value +
+    bytes([len(client_public_key)]) +
+    struct.pack("<H", len(ciphertext)) +
+    bridge_letter +
+    server_key_id +
+    client_public_key +
+    ciphertext +
+    language
+)
+encoded = base64.b64encode(payload).decode("utf-8")
+print(encoded)
+```
+
+### Payload Only
+
+- **Switch**: `1`
+- **Format**:
+  - 1 byte: Version Marker (`0x02`)
+  - 1 byte: Switch Value
+  - 2 bytes: Ciphertext Length (integer)
+  - 1 byte: Bridge Letter
+  - Variable: Ciphertext (encrypted [Content Format V2](#content-format-v2)).
+  - 2 byte: Language Code (ISO 639-1 format)
+
+> [!NOTE]
+>
+> For detailed instructions on using the Double Ratchet algorithm to create ciphertext, refer to the [smswithoutborders_lib_sig documentation](https://github.com/smswithoutborders/lib_signal_double_ratchet_python?tab=readme-ov-file#double-ratchet-implementations).
+
+#### Visual Representation:
+
+```
++----------------+--------------+----------------------+---------------+-----------------+---------------+
+| Version Marker | Switch Value | Length of Ciphertext | Bridge Letter | Ciphertext      | Language Code |
+| (1 byte)       | (1 byte)     | (2 bytes)            | (1 byte)      | (variable size) | (2 bytes)     |
++----------------+--------------+----------------------+---------------+-----------------+---------------+
+```
+
+```python
+version = b'\x02'
 switch_value = b'\x01'
 bridge_letter = b"e"
 ciphertext = b"..."
