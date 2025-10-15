@@ -18,7 +18,7 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt \
 COPY requirements.txt .
 
 RUN --mount=type=cache,sharing=locked,target=/root/.cache/pip \
-    pip install --disable-pip-version-check --quiet --no-cache-dir -r requirements.txt
+    pip install --disable-pip-version-check -r requirements.txt
 
 COPY . .
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
@@ -26,7 +26,7 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN --mount=type=cache,sharing=locked,target=/root/.cache/pip \
     make setup && \
     find bridges/ -type f -name "requirements.txt" -exec \
-    pip install --disable-pip-version-check --quiet --no-cache-dir -r {} \;
+    pip install --disable-pip-version-check -r {} \;
 
 ENV MODE=production
 
