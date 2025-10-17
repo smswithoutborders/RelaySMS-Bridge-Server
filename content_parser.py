@@ -237,12 +237,13 @@ def extract_content(bridge_name: str, content: str) -> tuple:
     return None, "Invalid bridge name."
 
 
-def extract_content_v2(bridge_name: str, content: bytes) -> tuple:
+def extract_content_v2(bridge_name: str, content: bytes, image_length: int) -> tuple:
     """Extracts components based on the specified bridge name for v2.
 
     Args:
         bridge_name (str): The bridge identifier.
         content (bytes): The binary content to extract from.
+        image_length (int): The length of the image data at the start of the content.
 
     Returns:
         tuple: A tuple of extracted values or an error message.
@@ -250,6 +251,12 @@ def extract_content_v2(bridge_name: str, content: bytes) -> tuple:
     if bridge_name != "email_bridge":
         return None, "Invalid bridge name."
 
+    image_data = content[:image_length]
+    logger.debug(
+        "Extracted image data: [%s] of length: %s", image_data, len(image_data)
+    )
+
+    text_content = content[image_length:]
     logger.debug("Extracting v2 email content from %s bytes", len(content))
 
     format_spec = [
@@ -266,21 +273,26 @@ def extract_content_v2(bridge_name: str, content: bytes) -> tuple:
     ]
 
     try:
-        result = parse_payload(content, format_spec)
+        result = parse_payload(text_content, format_spec)
         extracted = {
             "to": result.get("to", ""),
             "cc": result.get("cc", ""),
             "bcc": result.get("bcc", ""),
             "subject": result.get("subject", ""),
             "body": result.get("body", ""),
+            "image": image_data,
         }
         logger.debug(
-            "Extracted v2 email fields - to: %s, cc: %s, bcc: %s, subject: %s, body length: %s",
+            "Extracted v2 email fields - \nto: %s\ncc: %s\nbcc: %s\nsubject: %s"
+            "\nbody length: %s\nimage length: %s\n body: %s\nimage: %s",
             extracted["to"],
             extracted["cc"],
             extracted["bcc"],
             extracted["subject"],
             len(extracted["body"]),
+            len(extracted["image"]),
+            extracted["body"],
+            extracted["image"],
         )
         return extracted, None
     except Exception as e:
@@ -361,111 +373,14 @@ def extract_content_v3(bridge_name: str, content: bytes) -> tuple:
             "body": result.get("body", ""),
         }
         logger.debug(
-            "Extracted v3 email fields - \nto: %s\ncc: %s\nbcc: %s\nsubject: %s\nbody length: %s\nbody: %s",
+            "Extracted v3 email fields - \nto: %s\ncc: %s\nbcc: %s"
+            "\nsubject: %s\nbody length: %s\nbody: %s",
             extracted["to"],
             extracted["cc"],
             extracted["bcc"],
             extracted["subject"],
             len(extracted["body"]),
             extracted["body"],
-        )
-        return extracted, None
-    except Exception as e:
-        return None, e
-
-
-def extract_content_v4(bridge_name: str, content: bytes, image_length: int) -> tuple:
-    """Extracts components based on the specified bridge name for v4.
-
-    Args:
-        bridge_name (str): The bridge identifier.
-        content (bytes): The binary content to extract from.
-        image_length (int): The length of the image data at the start of the content.
-
-    Returns:
-        tuple: A tuple of extracted values or an error message.
-    """
-    if bridge_name != "email_bridge":
-        return None, "Invalid bridge name."
-
-    logger.debug("Extracting v4 email content from %s bytes", len(content))
-
-    image_data = content[:image_length]
-    logger.debug(
-        "Extracted image data: [%s] of length: %s", image_data, len(image_data)
-    )
-
-    text_content = content[image_length:]
-    bitmap = text_content[0]
-    logger.debug("v4 bitmap value: %s (binary: %s)", bitmap, format(bitmap, "08b"))
-
-    fields_present = {
-        "cc": bool(bitmap & 0b00000001),
-        "bcc": bool(bitmap & 0b00000010),
-    }
-    logger.debug(
-        "v4 optional fields - cc present: %s, bcc present: %s",
-        fields_present["cc"],
-        fields_present["bcc"],
-    )
-
-    format_spec = [
-        FormatSpec(key="length_to", fmt="<H", decoding=None),
-    ]
-
-    if fields_present["cc"]:
-        format_spec.append(FormatSpec(key="length_cc", fmt="<H", decoding=None))
-    if fields_present["bcc"]:
-        format_spec.append(FormatSpec(key="length_bcc", fmt="<H", decoding=None))
-
-    format_spec.extend(
-        [
-            FormatSpec(key="length_subject", fmt="<B", decoding=None),
-            FormatSpec(key="length_body", fmt="<H", decoding=None),
-        ]
-    )
-
-    format_spec.append(
-        FormatSpec(key="to", fmt=lambda d: d["length_to"], decoding="utf-8")
-    )
-    if fields_present["cc"]:
-        format_spec.append(
-            FormatSpec(key="cc", fmt=lambda d: d["length_cc"], decoding="utf-8")
-        )
-    if fields_present["bcc"]:
-        format_spec.append(
-            FormatSpec(key="bcc", fmt=lambda d: d["length_bcc"], decoding="utf-8")
-        )
-    format_spec.extend(
-        [
-            FormatSpec(
-                key="subject", fmt=lambda d: d["length_subject"], decoding="utf-8"
-            ),
-            FormatSpec(key="body", fmt=lambda d: d["length_body"], decoding="utf-8"),
-        ]
-    )
-
-    try:
-        result = parse_payload(text_content[1:], format_spec)
-        extracted = {
-            "to": result.get("to", ""),
-            "cc": result.get("cc", ""),
-            "bcc": result.get("bcc", ""),
-            "subject": result.get("subject", ""),
-            "body": result.get("body", ""),
-            "image": image_data,
-        }
-        logger.debug(
-            "Extracted v4 email fields - \nto: %s\ncc: %s\nbcc: %s\nsubject: "
-            "%s\nbody length: %s\nimage length: %s\nbody: %s\nimage: %s",
-            extracted["to"],
-            extracted["cc"],
-            extracted["bcc"],
-            extracted["subject"],
-            len(extracted["body"]),
-            len(extracted["image"]),
-            extracted["body"],
-            extracted["image"],
         )
         return extracted, None
     except Exception as e:
