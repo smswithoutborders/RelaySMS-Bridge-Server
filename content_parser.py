@@ -111,13 +111,6 @@ def decode_v0(payload: bytes) -> tuple:
         return None, ValueError(f"Invalid content switch: {switch_value}")
 
     result = parse_payload(payload[1:], parsers[switch_value])
-    logger.debug(
-        "Decoded v0 payload fields: %s",
-        {
-            k: v if not isinstance(v, bytes) else f"<bytes len={len(v)}>"
-            for k, v in result.items()
-        },
-    )
     return result, None
 
 
@@ -175,14 +168,6 @@ def decode_v1(payload: bytes) -> tuple:
 
     result = parse_payload(payload[2:], parsers[switch_value])
     result["version"] = version
-    logger.debug(
-        "Decoded v1 payload - version: %s, fields: %s",
-        version,
-        {
-            k: v if not isinstance(v, bytes) else f"<bytes len={len(v)}>"
-            for k, v in result.items()
-        },
-    )
     return result, None
 
 
@@ -223,13 +208,6 @@ def extract_content(bridge_name: str, content: str) -> tuple:
     """
     if bridge_name == "email_bridge":
         parts = content.split(":", 4)
-        logger.debug(
-            "Extracted email content parts: %s",
-            [
-                f"{i}:{part[:20]}..." if len(part) > 20 else f"{i}:{part}"
-                for i, part in enumerate(parts)
-            ],
-        )
 
         if len(parts) != 5:
             return None, "Email content must have exactly 5 parts."
@@ -252,10 +230,6 @@ def extract_content_v2(bridge_name: str, content: bytes, image_length: int) -> t
         return None, "Invalid bridge name."
 
     image_data = content[:image_length]
-    logger.debug(
-        "Extracted image data: [%s] of length: %s", image_data, len(image_data)
-    )
-
     text_content = content[image_length:]
     logger.debug("Extracting v2 email content from %s bytes", len(content))
 
