@@ -17,7 +17,12 @@ from phonenumbers import geocoder
 import bridge_pb2
 import bridge_pb2_grpc
 
-from content_parser import decode_content, extract_content, extract_content_v2
+from content_parser import (
+    decode_content,
+    extract_content,
+    extract_content_v2,
+    extract_content_v4,
+)
 from vault_grpc_client import (
     create_bridge_entity,
     decrypt_payload,
@@ -240,6 +245,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                         "body": c[4],
                     },
                     "v2": lambda c: c,
+                    "v4": lambda c: c,
                 }
                 content = content_map[payload_version](content_parts)
                 email_send_success, email_send_message = email_bridge_module.send_email(
@@ -357,6 +363,11 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 ),
                 "v2": lambda d: extract_content_v2(
                     bridge_name=bridge_info["name"], content=base64.b64decode(d)
+                ),
+                "v4": lambda d: extract_content_v4(
+                    bridge_name=bridge_info["name"],
+                    content=base64.b64decode(d),
+                    image_length=request.metadata["image_length"],
                 ),
             }
 
