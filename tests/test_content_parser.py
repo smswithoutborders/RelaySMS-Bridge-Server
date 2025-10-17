@@ -14,6 +14,7 @@ from content_parser import (
     extract_content,
     extract_content_v2,
     extract_content_v3,
+    extract_content_v4,
 )
 
 
@@ -208,12 +209,8 @@ def test_extract_content(bridge_name, content, expected):
 )
 def test_extract_content_v2(bridge_name, content, expected):
     result, error = extract_content_v2(bridge_name, content)
-    if expected is None:
-        assert result is None
-        assert isinstance(error, str)
-    else:
-        assert result == expected
-        assert error is None
+    assert error is None
+    assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -261,9 +258,72 @@ def test_extract_content_v2(bridge_name, content, expected):
 )
 def test_extract_content_v3(bridge_name, content, expected):
     result, error = extract_content_v3(bridge_name, content)
-    if expected is None:
-        assert result is None
-        assert isinstance(error, str)
-    else:
-        assert result == expected
-        assert error is None
+    assert error is None
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "bridge_name, content, image_length, expected",
+    [
+        (
+            "email_bridge",
+            b"imagedate" + struct.pack("<BHBH", 0b00000000, 2, 7, 4) + b"tosubjectbody",
+            9,
+            {
+                "to": "to",
+                "cc": "",
+                "bcc": "",
+                "subject": "subject",
+                "body": "body",
+                "image": b"imagedate",
+            },
+        ),
+        (
+            "email_bridge",
+            struct.pack("<BHHHBH", 0b00000011, 2, 2, 3, 7, 4) + b"toccbccsubjectbody",
+            0,
+            {
+                "to": "to",
+                "cc": "cc",
+                "bcc": "bcc",
+                "subject": "subject",
+                "body": "body",
+                "image": b"",
+            },
+        ),
+        (
+            "email_bridge",
+            b"imagedata"
+            + struct.pack("<BHHBH", 0b00000001, 2, 2, 7, 4)
+            + b"toccsubjectbody",
+            9,
+            {
+                "to": "to",
+                "cc": "cc",
+                "bcc": "",
+                "subject": "subject",
+                "body": "body",
+                "image": b"imagedata",
+            },
+        ),
+        (
+            "email_bridge",
+            b"image"
+            + struct.pack("<BHHBH", 0b00000010, 2, 3, 7, 4)
+            + b"tobccsubjectbody",
+            5,
+            {
+                "to": "to",
+                "cc": "",
+                "bcc": "bcc",
+                "subject": "subject",
+                "body": "body",
+                "image": b"image",
+            },
+        ),
+    ],
+)
+def test_extract_content_v4(bridge_name, content, image_length, expected):
+    result, error = extract_content_v4(bridge_name, content, image_length)
+    assert error is None
+    assert result == expected
