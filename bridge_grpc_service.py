@@ -349,6 +349,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
 
             payload_version = decoded_result.get("version", "v0")
             logger.debug("Request metadata: %s", request.metadata)
+            logger.debug("image_length: %s", request.metadata.get("Image-Length"))
             content_extraction_map = {
                 "v0": lambda d: extract_content(
                     bridge_name=bridge_info["name"],
@@ -361,7 +362,11 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 "v2": lambda d: extract_content_v2(
                     bridge_name=bridge_info["name"],
                     content=base64.b64decode(d),
-                    image_length=int(getattr(request.metadata, "Image-Length", "0")),
+                    image_length=(
+                        0
+                        if not request.metadata.get("Image-Length")
+                        else int(request.metadata.get("Image-Length"))
+                    ),
                 ),
             }
 
