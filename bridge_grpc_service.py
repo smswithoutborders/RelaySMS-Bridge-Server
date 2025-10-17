@@ -112,6 +112,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
         """Handles publishing bridge payload"""
 
         response = bridge_pb2.PublishContentResponse
+        logger.debug("Received PublishContent request: %s", request.__dict__)
 
         def create_entity(
             client_publish_pub_key=None,
@@ -347,6 +348,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 return decrypt_error
 
             payload_version = decoded_result.get("version", "v0")
+            logger.debug("Request metadata: %s", request.metadata)
             content_extraction_map = {
                 "v0": lambda d: extract_content(
                     bridge_name=bridge_info["name"],
