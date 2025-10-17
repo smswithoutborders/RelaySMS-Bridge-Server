@@ -367,7 +367,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                 "v4": lambda d: extract_content_v4(
                     bridge_name=bridge_info["name"],
                     content=base64.b64decode(d),
-                    image_length=request.metadata["image_length"],
+                    image_length=int(getattr(request.metadata, "Image-Length", "0")),
                 ),
             }
 
