@@ -249,6 +249,7 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     bcc_email=content["bcc"],
                     subject=content["subject"],
                     body=content["body"],
+                    image=content.get("image"),
                 )
                 if not email_send_success:
                     return None, self.handle_create_grpc_error_response(
@@ -356,7 +357,13 @@ class BridgeService(bridge_pb2_grpc.EntityServiceServicer):
                     content=base64.b64decode(d).decode("utf-8"),
                 ),
                 "v2": lambda d: extract_content_v2(
-                    bridge_name=bridge_info["name"], content=base64.b64decode(d)
+                    bridge_name=bridge_info["name"],
+                    content=base64.b64decode(d),
+                    image_length=(
+                        0
+                        if not request.metadata.get("Image-Length")
+                        else int(request.metadata.get("Image-Length"))
+                    ),
                 ),
             }
 

@@ -180,40 +180,40 @@ def test_extract_content(bridge_name, content, expected):
 
 
 @pytest.mark.parametrize(
-    "bridge_name, content, expected",
+    "bridge_name, content, image_length, expected",
     [
         (
             "email_bridge",
             struct.pack("<HHHBH", 2, 2, 3, 7, 4) + b"toccbccsubjectbody",
+            0,
             {
                 "to": "to",
                 "cc": "cc",
                 "bcc": "bcc",
                 "subject": "subject",
                 "body": "body",
+                "image": b"",
             },
         ),
         (
             "email_bridge",
-            struct.pack("<HHHBH", 2, 0, 0, 7, 4) + b"tosubjectbody",
+            b"imagedata" + struct.pack("<HHHBH", 2, 0, 0, 7, 4) + b"tosubjectbody",
+            9,
             {
                 "to": "to",
                 "cc": "",
                 "bcc": "",
                 "subject": "subject",
                 "body": "body",
+                "image": b"imagedata",
             },
         ),
     ],
 )
-def test_extract_content_v2(bridge_name, content, expected):
-    result, error = extract_content_v2(bridge_name, content)
-    if expected is None:
-        assert result is None
-        assert isinstance(error, str)
-    else:
-        assert result == expected
-        assert error is None
+def test_extract_content_v2(bridge_name, content, image_length, expected):
+    result, error = extract_content_v2(bridge_name, content, image_length)
+    assert error is None
+    assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -261,9 +261,5 @@ def test_extract_content_v2(bridge_name, content, expected):
 )
 def test_extract_content_v3(bridge_name, content, expected):
     result, error = extract_content_v3(bridge_name, content)
-    if expected is None:
-        assert result is None
-        assert isinstance(error, str)
-    else:
-        assert result == expected
-        assert error is None
+    assert error is None
+    assert result == expected

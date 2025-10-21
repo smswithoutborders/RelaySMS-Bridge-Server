@@ -7,6 +7,9 @@ Public License was not distributed with this file, see <https://www.gnu.org/lice
 import base64
 import struct
 from collections import namedtuple
+from logutils import get_logger
+
+logger = get_logger(__name__)
 
 FormatSpec = namedtuple("FormatSpec", ["key", "fmt", "decoding"])
 
@@ -47,6 +50,7 @@ def parse_payload(payload: bytes, format_spec: list) -> dict:
             default = "" if spec.decoding else b""
             result[spec.key] = default
 
+    logger.debug("Parsed payload fields: %s", list(result.keys()))
     return result
 
 
@@ -101,6 +105,8 @@ def decode_v0(payload: bytes) -> tuple:
     }
 
     switch_value = payload[0]
+    logger.debug("Decoding v0 payload with switch value: %s", switch_value)
+
     if switch_value not in parsers:
         return None, ValueError(f"Invalid content switch: {switch_value}")
 
@@ -119,6 +125,10 @@ def decode_v1(payload: bytes) -> tuple:
     """
     version = f"v{payload[0] - 9}" if payload[0] == 10 else f"v{payload[0]}"
     switch_value = payload[1]
+    logger.debug(
+        "Decoding v1 payload - version: %s, switch value: %s", version, switch_value
+    )
+
     parsers = {
         0: [
             FormatSpec(key="len_public_key", fmt="<B", decoding=None),
@@ -173,6 +183,12 @@ def decode_content(content: str) -> tuple:
     try:
         payload = base64.b64decode(content)
         version_marker = payload[0]
+        logger.debug(
+            "Decoded base64 content - version marker: %s, payload length: %s",
+            version_marker,
+            len(payload),
+        )
+
         if version_marker not in [2, 3, 10]:
             return None, f"Unsupported version marker: {version_marker}"
         return decode_v1(payload)
@@ -192,24 +208,30 @@ def extract_content(bridge_name: str, content: str) -> tuple:
     """
     if bridge_name == "email_bridge":
         parts = content.split(":", 4)
+
         if len(parts) != 5:
             return None, "Email content must have exactly 5 parts."
         return tuple(parts), None
     return None, "Invalid bridge name."
 
 
-def extract_content_v2(bridge_name: str, content: bytes) -> tuple:
+def extract_content_v2(bridge_name: str, content: bytes, image_length: int) -> tuple:
     """Extracts components based on the specified bridge name for v2.
 
     Args:
         bridge_name (str): The bridge identifier.
         content (bytes): The binary content to extract from.
+        image_length (int): The length of the image data at the start of the content.
 
     Returns:
         tuple: A tuple of extracted values or an error message.
     """
     if bridge_name != "email_bridge":
         return None, "Invalid bridge name."
+
+    image_data = content[:image_length]
+    text_content = content[image_length:]
+    logger.debug("Extracting v2 email content from %s bytes", len(content))
 
     format_spec = [
         FormatSpec(key="length_to", fmt="<H", decoding=None),
@@ -225,14 +247,28 @@ def extract_content_v2(bridge_name: str, content: bytes) -> tuple:
     ]
 
     try:
-        result = parse_payload(content, format_spec)
-        return {
+        result = parse_payload(text_content, format_spec)
+        extracted = {
             "to": result.get("to", ""),
             "cc": result.get("cc", ""),
             "bcc": result.get("bcc", ""),
             "subject": result.get("subject", ""),
             "body": result.get("body", ""),
-        }, None
+            "image": image_data,
+        }
+        logger.debug(
+            "Extracted v2 email fields - \nto: %s\ncc: %s\nbcc: %s\nsubject: %s"
+            "\nbody length: %s\nimage length: %s\n body: %s\nimage: %s",
+            extracted["to"],
+            extracted["cc"],
+            extracted["bcc"],
+            extracted["subject"],
+            len(extracted["body"]),
+            len(extracted["image"]),
+            extracted["body"],
+            extracted["image"],
+        )
+        return extracted, None
     except Exception as e:
         return None, e
 
@@ -250,12 +286,20 @@ def extract_content_v3(bridge_name: str, content: bytes) -> tuple:
     if bridge_name != "email_bridge":
         return None, "Invalid bridge name."
 
+    logger.debug("Extracting v3 email content from %s bytes", len(content))
+
     bitmap = content[0]
+    logger.debug("v3 bitmap value: %s (binary: %s)", bitmap, format(bitmap, "08b"))
 
     fields_present = {
         "cc": bool(bitmap & 0b00000001),
         "bcc": bool(bitmap & 0b00000010),
     }
+    logger.debug(
+        "v3 optional fields - cc present: %s, bcc present: %s",
+        fields_present["cc"],
+        fields_present["bcc"],
+    )
 
     format_spec = [
         FormatSpec(key="length_to", fmt="<H", decoding=None),
@@ -295,12 +339,23 @@ def extract_content_v3(bridge_name: str, content: bytes) -> tuple:
 
     try:
         result = parse_payload(content[1:], format_spec)
-        return {
+        extracted = {
             "to": result.get("to", ""),
             "cc": result.get("cc", ""),
             "bcc": result.get("bcc", ""),
             "subject": result.get("subject", ""),
             "body": result.get("body", ""),
-        }, None
+        }
+        logger.debug(
+            "Extracted v3 email fields - \nto: %s\ncc: %s\nbcc: %s"
+            "\nsubject: %s\nbody length: %s\nbody: %s",
+            extracted["to"],
+            extracted["cc"],
+            extracted["bcc"],
+            extracted["subject"],
+            len(extracted["body"]),
+            extracted["body"],
+        )
+        return extracted, None
     except Exception as e:
         return None, e
