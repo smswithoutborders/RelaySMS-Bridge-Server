@@ -6,5 +6,5 @@ imap-tools==1.11.0
 peewee==3.18.3
 phonenumbers==9.0.18
 PyMySQL==1.1.2
-sentry-sdk==2.43.0
-twilio==9.8.5
+sentry-sdk==2.44.0
+twilio==9.8.6
