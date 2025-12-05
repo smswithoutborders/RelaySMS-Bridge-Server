@@ -41,7 +41,8 @@ IMAP_PORT = int(get_env_var("BRIDGE_IMAP_PORT", 993))
 IMAP_USERNAME = get_env_var("BRIDGE_IMAP_USERNAME", strict=True)
 IMAP_PASSWORD = get_env_var("BRIDGE_IMAP_PASSWORD", strict=True)
 MAIL_FOLDERS = [
-    folder.strip() for folder in get_env_var("BRIDGE_MAIL_FOLDER", "INBOX").split(",")
+    folder.strip()
+    for folder in get_env_var("BRIDGE_IMAP_MAIL_FOLDER", "INBOX").split(",")
 ]
 SSL_CERTIFICATE = get_env_var("SSL_CERTIFICATE_FILE", strict=True)
 SSL_KEY = get_env_var("SSL_CERTIFICATE_KEY_FILE", strict=True)
