@@ -4,17 +4,20 @@ of the GNU General Public License, v. 3.0. If a copy of the GNU General
 Public License was not distributed with this file, see <https://www.gnu.org/licenses/>.
 """
 
-import datetime
-import struct
+import asyncio
 import base64
-import ssl
-import re
-import time
-import socket
+import datetime
 import imaplib
+import re
+import socket
+import ssl
+import struct
+import time
 import traceback
-import sentry_sdk
+from concurrent.futures import ThreadPoolExecutor
 
+import sentry_sdk
+from email_reply_parser import EmailReplyParser
 from imap_tools import (
     AND,
     MailBox,
@@ -22,22 +25,24 @@ from imap_tools import (
     MailboxLogoutError,
     MailMessage,
 )
-from email_reply_parser import EmailReplyParser
-from vault_grpc_client import authenticate_bridge_entity, encrypt_payload
+
 from sms_outbound import (
     QUEUEDROID_SUPPORTED_REGION_CODES,
+    get_phonenumber_region_code,
     send_with_queuedroid,
     send_with_twilio,
-    get_phonenumber_region_code,
 )
-from utils import get_logger, get_env_var, get_config_value
 from translations import Localization
+from utils import get_config_value, get_env_var, get_logger
+from vault_grpc_client import authenticate_bridge_entity, encrypt_payload
 
 IMAP_SERVER = get_env_var("BRIDGE_IMAP_SERVER", strict=True)
 IMAP_PORT = int(get_env_var("BRIDGE_IMAP_PORT", 993))
 IMAP_USERNAME = get_env_var("BRIDGE_IMAP_USERNAME", strict=True)
 IMAP_PASSWORD = get_env_var("BRIDGE_IMAP_PASSWORD", strict=True)
-MAIL_FOLDER = get_env_var("BRIDGE_MAIL_FOLDER", "INBOX")
+MAIL_FOLDERS = [
+    folder.strip() for folder in get_env_var("BRIDGE_MAIL_FOLDER", "INBOX").split(",")
+]
 SSL_CERTIFICATE = get_env_var("SSL_CERTIFICATE_FILE", strict=True)
 SSL_KEY = get_env_var("SSL_CERTIFICATE_KEY_FILE", strict=True)
 MOCK_REPLY_SMS = get_env_var("MOCK_REPLY_SMS")
@@ -270,6 +275,47 @@ def process_incoming_email(mailbox: MailBox, email: MailMessage) -> None:
         logger.warning(failure_alert)
 
 
+def check_folder(folder: str, ssl_context) -> None:
+    """
+    Check a specific folder for emails.
+
+    Args:
+        folder (str): The folder name to check.
+        ssl_context: The SSL context for the connection.
+    """
+    try:
+        with MailBox(IMAP_SERVER, IMAP_PORT, ssl_context=ssl_context).login(
+            IMAP_USERNAME, IMAP_PASSWORD
+        ) as mailbox:
+            mailbox.folder.set(folder)
+            logger.debug("Checking folder: %s", folder)
+
+            for msg in mailbox.fetch(
+                criteria=AND(seen=False),
+                bulk=50,
+                mark_seen=False,
+            ):
+                process_incoming_email(mailbox, msg)
+    except Exception as e:
+        logger.error("Error checking folder %s: %s", folder, e)
+
+
+async def check_all_folders_async(ssl_context) -> None:
+    """
+    Check all folders asynchronously.
+
+    Args:
+        ssl_context: The SSL context for the connection.
+    """
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor(max_workers=len(MAIL_FOLDERS)) as executor:
+        tasks = [
+            loop.run_in_executor(executor, check_folder, folder, ssl_context)
+            for folder in MAIL_FOLDERS
+        ]
+        await asyncio.gather(*tasks)
+
+
 def main() -> None:
     """
     Main function to run the email processing loop.
@@ -282,7 +328,7 @@ def main() -> None:
         connection_live_time = 0.0
         try:
             with MailBox(IMAP_SERVER, IMAP_PORT, ssl_context=ssl_context).login(
-                IMAP_USERNAME, IMAP_PASSWORD, MAIL_FOLDER
+                IMAP_USERNAME, IMAP_PASSWORD
             ) as mailbox:
                 logger.info(
                     "Connected to mailbox %s on %s", IMAP_SERVER, time.asctime()
@@ -293,12 +339,7 @@ def main() -> None:
                         if responses:
                             logger.debug("IMAP IDLE responses: %s", responses)
 
-                        for msg in mailbox.fetch(
-                            criteria=AND(seen=False),
-                            bulk=50,
-                            mark_seen=False,
-                        ):
-                            process_incoming_email(mailbox, msg)
+                        asyncio.run(check_all_folders_async(ssl_context))
 
                     except KeyboardInterrupt:
                         logger.info("Exiting gracefully...")
