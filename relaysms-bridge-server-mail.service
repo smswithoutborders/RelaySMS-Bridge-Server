@@ -1,0 +1,15 @@
+[Unit]
+Description=RelaySMS Bridge Server Mail Inbound Service
+PartOf=relaysms-bridge-server.target
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/relaysms/relaysms-bridge-server
+EnvironmentFile=/opt/relaysms/relaysms-bridge-server/.env
+ExecStart=/opt/relaysms/relaysms-bridge-server/venv/bin/python3 -u mail_inbound.py
+Restart=on-failure
+SyslogIdentifier=relaysms-bridge-server-mail
+ReadWritePaths=/opt/relaysms/relaysms-bridge-server/data
+
+[Install]
+WantedBy=relaysms-bridge-server.target

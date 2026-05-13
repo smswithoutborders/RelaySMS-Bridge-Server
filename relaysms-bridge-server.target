@@ -1,0 +1,7 @@
+[Unit]
+Description=RelaySMS Bridge Server Services
+Wants=relaysms-bridge-server-grpc.service relaysms-bridge-server-mail.service
+After=relaysms-bridge-server-grpc.service relaysms-bridge-server-mail.service
+
+[Install]
+WantedBy=multi-user.target

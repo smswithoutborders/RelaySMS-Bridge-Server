@@ -1,0 +1,15 @@
+[Unit]
+Description=RelaySMS Bridge Server gRPC Server
+PartOf=relaysms-bridge-server.target
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/relaysms/relaysms-bridge-server
+EnvironmentFile=/opt/relaysms/relaysms-bridge-server/.env
+ExecStart=/opt/relaysms/relaysms-bridge-server/venv/bin/python3 -u grpc_server.py
+Restart=on-failure
+SyslogIdentifier=relaysms-bridge-server-grpc
+ReadWritePaths=/opt/relaysms/relaysms-bridge-server/data
+
+[Install]
+WantedBy=relaysms-bridge-server.target
